@@ -6,6 +6,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QPlainTextEdit, QTextBrowser, QLabel, QTabWidget, QWidget, QVBoxLayout, QPushButton, \
     QHBoxLayout, QGridLayout, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView
 
+from src.constant.tab_constant import SEND_BUTTON, SENDING_BUTTON
 from src.function.dubbo.dubbo_client import DubboClient
 from src.ui.box.message_box import pop_fail
 from src.ui.func.common import exception_handler
@@ -55,6 +56,7 @@ class TabUI:
         self.need_new_tab = need_new_tab
         # 预定义
         self.tab: QWidget = ...
+        self.send_button: QPushButton = ...
         self.param_edit_tab_widget: QTabWidget = ...
         self.json_edit_area: QPlainTextEdit = ...
         self.request_time_label: QLabel = ...
@@ -68,11 +70,17 @@ class TabUI:
         self.method_param_list = self.method_dict.get("param_type").split(",") \
             if self.method_dict.get("param_type") else list()
         self.rpc_result = None
+        self.method_name = f"方法名称：{self.method_dict.get('method_name')}"
+        self.method_param = f"参数详情：{self.method_dict.get('param_type')}"
+        self.method_result = f"返回类型：{self.method_dict.get('result_type')}"
 
     def set_up_tab(self):
         self.tab = QWidget()
         # 设置tab标题
         self.parent.addTab(self.tab, self.title)
+        # 将气泡提示需要的文案提前放入tab bar属性中
+        tool_tip = f'{self.title}\n{self.method_name}\n{self.method_param}\n{self.method_result}'
+        self.parent.tabBar().setProperty(self.title, tool_tip)
         # tab页，垂直布局
         tab_vertical_layout = QVBoxLayout(self.tab)
         tab_vertical_layout.setObjectName("tab_vertical_layout")
@@ -87,7 +95,7 @@ class TabUI:
         tab_vertical_layout.setStretch(0, 1)
         tab_vertical_layout.setStretch(1, 3)
         tab_vertical_layout.setStretch(2, 5)
-        # todo 暂时以当前tab为当前的tab
+        # 以刚打开的tab为当前tab
         self.parent.setCurrentWidget(self.tab)
 
     def set_up_method_display_area(self, tab: QWidget, layout: QVBoxLayout):
@@ -157,31 +165,31 @@ class TabUI:
         """方法名称展示区"""
         method_name_label = QLabel(parent)
         method_name_label.setObjectName("method_name_label")
-        method_name_label.setText(f"dubbo方法名称：{self.method_dict.get('method_name')}")
+        method_name_label.setText(self.method_name)
         layout.addWidget(method_name_label)
 
     def set_up_param_info_label(self, parent: QWidget, layout: QVBoxLayout):
         """方法参数类型展示区"""
         param_label = QLabel(parent)
         param_label.setObjectName("param_label")
-        param_label.setText(f"参数详情：{self.method_dict.get('param_type')}")
+        param_label.setText(self.method_param)
         layout.addWidget(param_label)
 
     def set_up_result_type_label(self, parent: QWidget, layout: QVBoxLayout):
         """返回结果类型展示区"""
         result_label = QLabel(parent)
         result_label.setObjectName("result_label")
-        result_label.setText(f"返回类型：{self.method_dict.get('result_type')}")
+        result_label.setText(self.method_result)
         layout.addWidget(result_label)
 
     def set_up_send_button(self, parent: QWidget, layout: QVBoxLayout):
         """发送按钮区"""
-        send_button = QPushButton(parent)
-        send_button.setObjectName("send_button")
-        send_button.setText("发送请求")
-        layout.addWidget(send_button)
+        self.send_button = QPushButton(parent)
+        self.send_button.setObjectName("send_button")
+        self.enable_send_button()
+        layout.addWidget(self.send_button)
         # 按钮事件
-        send_button.clicked.connect(lambda: self.send_func())
+        self.send_button.clicked.connect(lambda: self.send_func())
 
     def set_up_param_args_edit_tab(self, tab: QTabWidget):
         """args参数输入区，表格形式"""
@@ -286,21 +294,37 @@ class TabUI:
     @exception_handler(pop_fail, "请求接口失败")
     def send_func(self):
         """发送请求"""
+        # 点击发送后，首先将按钮置为不可用，文案显示：发送中
+        self.disable_send_button()
         self.request_time_label.setText(f"请求时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         # 清空结果区
         self.result_browser.clear()
-        dubbo_client = DubboClient(self.conn_dict.get("host"),
-                                   self.conn_dict.get("port"),
-                                   self.conn_dict.get("timeout"))
-        method = self.method_dict.get("method_name")
-        request_param = self.get_param()
-        if request_param:
-            invoke_method = f'{self.service_path}.{method}({request_param})'
-        else:
-            invoke_method = f'{self.service_path}.{method}()'
-        method_result = dubbo_client.invoke(invoke_method)
-        self.response_time_label.setText(f"响应时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        self.parse_result(method_result)
+        try:
+            dubbo_client = DubboClient(self.conn_dict.get("host"),
+                                       self.conn_dict.get("port"),
+                                       self.conn_dict.get("timeout"))
+            method = self.method_dict.get("method_name")
+            request_param = self.get_param()
+            if request_param:
+                invoke_method = f'{self.service_path}.{method}({request_param})'
+            else:
+                invoke_method = f'{self.service_path}.{method}()'
+            method_result = dubbo_client.invoke(invoke_method)
+            self.response_time_label.setText(f"响应时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            self.parse_result(method_result)
+        finally:
+            # 恢复发送按钮
+            self.enable_send_button()
+
+    def disable_send_button(self):
+        # 设置按钮不可用
+        self.send_button.setDisabled(True)
+        self.send_button.setText(SENDING_BUTTON)
+
+    def enable_send_button(self):
+        # 恢复发送按钮
+        self.send_button.setDisabled(False)
+        self.send_button.setText(SEND_BUTTON)
 
     def parse_result(self, result):
         """解析结果，展示"""

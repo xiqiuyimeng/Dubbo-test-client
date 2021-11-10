@@ -406,9 +406,6 @@ class TreeNodeMethod(TreeNodeAbstract, ABC):
                        eval(item.text(1)),
                        eval(item.parent().parent().text(1)))
         tab_ui.set_up_tab()
-        # 如果当前tab中已存在
-        # if hasattr(window, 'table_frame') and window.current_table is not item:
-        #     close_table(window)
 
     def close_item(self, item, window):
         """

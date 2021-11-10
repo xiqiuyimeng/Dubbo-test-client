@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QVBoxLayout, QToolBar
 
-from src.constant.conn_dialog_constant import ADD_CONN_MENU, EDIT_CONN_MENU
+from src.constant.conn_dialog_constant import ADD_CONN_MENU
 from src.function.db.conn_sqlite import Connection, ConnSqlite
 from src.ui.dialog.conn.conn_dialog import ConnDialog
 from src.ui.func.common import keep_center
@@ -12,6 +12,7 @@ from src.ui.func.menu_bar import fill_menu_bar
 from src.ui.func.tool_bar import fill_tool_bar
 from src.ui.func.tree import tree_node_factory, Context, add_conn_item
 from src.ui.scrollable_widget.scrollable_widget import MyTreeWidget
+from src.ui.tab.tab_bar import MyTabBar
 
 _author_ = 'luwt'
 _date_ = '2021/10/31 17:39'
@@ -53,8 +54,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # 右边tab区
         self.tab_widget = QtWidgets.QTabWidget(self.tab_frame)
         self.tab_widget.setObjectName("tab_widget")
-        # 选项卡增加关闭按钮
-        self.tab_widget.setTabsClosable(True)
+        self.tab_bar = MyTabBar(self.tab_widget)
+        self.tab_bar.setObjectName("tab_bar")
+        self.tab_widget.setTabBar(self.tab_bar)
         # 关闭选项卡事件
         self.tab_widget.tabCloseRequested.connect(self.tab_widget.removeTab)
         self.tab_layout.addWidget(self.tab_widget)
@@ -113,7 +115,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_widget.expanded.connect(self.tree_widget.tree_column_resize)
         self.tree_widget.collapsed.connect(self.tree_widget.tree_column_resize)
         # 右击事件
-        self.tree_widget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.tree_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree_widget.customContextMenuRequested.connect(self.right_click_menu)
 
     def translate_ui(self):
