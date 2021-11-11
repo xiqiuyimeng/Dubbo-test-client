@@ -400,12 +400,25 @@ class TreeNodeMethod(TreeNodeAbstract, ABC):
         :param item: 当前点击树节点元素
         :param window: 启动的主窗口界面对象
         """
-        tab_ui = TabUI(window.tab_widget,
-                       item.text(0),
-                       item.parent().text(0),
-                       eval(item.text(1)),
-                       eval(item.parent().parent().text(1)))
-        tab_ui.set_up_tab()
+        conn_dict = eval(item.parent().parent().text(1))
+        service_path = item.parent().text(0)
+        method_dict = eval(item.text(1))
+        method_name = item.text(0)
+        # 首先构造tab的id：conn_id + service + method_name
+        tab_id = f'{conn_dict.get("id")}-{service_path}-{method_name}'
+        opened_tab_ids = window.tab_widget.opened_tab_ids
+        # 如果当前方法已经打开过了，那么就将它的tab页置顶，如果没有打开过，那么再打开
+        if opened_tab_ids.get(tab_id):
+            window.tab_widget.setCurrentWidget(opened_tab_ids.get(tab_id))
+        else:
+            tab_ui = TabUI(window.tab_widget,
+                           method_name,
+                           service_path,
+                           method_dict,
+                           conn_dict,
+                           tab_id)
+            tab_ui.set_up_tab()
+            opened_tab_ids[tab_id] = tab_ui.tab
 
     def close_item(self, item, window):
         """

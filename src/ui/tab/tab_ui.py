@@ -4,12 +4,13 @@ from datetime import datetime
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QPlainTextEdit, QTextBrowser, QLabel, QTabWidget, QWidget, QVBoxLayout, QPushButton, \
-    QHBoxLayout, QGridLayout, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView
+    QHBoxLayout, QGridLayout, QComboBox, QTableWidget, QTableWidgetItem
 
-from src.constant.tab_constant import SEND_BUTTON, SENDING_BUTTON
+from src.constant.tab_constant import SEND_BUTTON, SENDING_BUTTON, PARAM_TABLE_HEADER, ARGS_TAB_TITLE, JSON_TAB_TITLE, \
+    RESULT_DISPLAY, REQUEST_TIME, RESPONSE_TIME, COST_TIME, REQUEST_FAIL
 from src.function.dubbo.dubbo_client import DubboClient
 from src.ui.box.message_box import pop_fail
-from src.ui.func.common import exception_handler
+from src.ui.func.common import exception_handler, set_up_label
 
 _author_ = 'luwt'
 _date_ = '2021/11/4 19:38'
@@ -24,7 +25,7 @@ class TabUI:
             service_path: str,
             method_dict: dict,
             conn_dict: dict,
-            need_new_tab=False
+            tab_id: str
     ):
         """
         tab页
@@ -45,15 +46,14 @@ class TabUI:
                                     "port": "",
                                     "timeout": ""
                                     }
-        :param need_new_tab: 是否需要新建一个tab页，默认为False，如果标识当前方法的tab已存在，则将该tab置为当前tab，
-                如果设置为True，则会新建一个tab
+        :param tab_id: tab id
         """
         self.parent = parent
         self.title = title
         self.service_path = service_path
         self.method_dict = method_dict
         self.conn_dict = conn_dict
-        self.need_new_tab = need_new_tab
+        self.tab_id = tab_id
         # 预定义
         self.tab: QWidget = ...
         self.send_button: QPushButton = ...
@@ -70,6 +70,8 @@ class TabUI:
         self.method_param_list = self.method_dict.get("param_type").split(",") \
             if self.method_dict.get("param_type") else list()
         self.rpc_result = None
+        self.conn_name = f"连接名称：{self.conn_dict.get('name')}"
+        self.service_path_name = f"服务路径：{self.service_path}"
         self.method_name = f"方法名称：{self.method_dict.get('method_name')}"
         self.method_param = f"参数详情：{self.method_dict.get('param_type')}"
         self.method_result = f"返回类型：{self.method_dict.get('result_type')}"
@@ -78,9 +80,11 @@ class TabUI:
         self.tab = QWidget()
         # 设置tab标题
         self.parent.addTab(self.tab, self.title)
-        # 将气泡提示需要的文案提前放入tab bar属性中
-        tool_tip = f'{self.title}\n{self.method_name}\n{self.method_param}\n{self.method_result}'
-        self.parent.tabBar().setProperty(self.title, tool_tip)
+        self.tab.setProperty("tab_id", self.tab_id)
+        # 将气泡提示需要的文案提前放入tab属性中
+        tool_tip = f'{self.title}\n{self.conn_name}\n{self.service_path_name}\n' \
+                   f'{self.method_name}\n{self.method_param}\n{self.method_result}'
+        self.tab.setProperty("tool_tip", tool_tip)
         # tab页，垂直布局
         tab_vertical_layout = QVBoxLayout(self.tab)
         tab_vertical_layout.setObjectName("tab_vertical_layout")
@@ -112,12 +116,16 @@ class TabUI:
         display_layout = QVBoxLayout()
         display_layout.setObjectName("display_layout")
         method_display_layout.addLayout(display_layout)
+        # 连接名称展示区
+        set_up_label(method_display_widget, self.conn_name, display_layout, "conn_name_label")
+        # 服务路径展示区
+        set_up_label(method_display_widget, self.service_path_name, display_layout, "service_path_label")
         # 方法名称展示区
-        self.set_up_method_name_label(method_display_widget, display_layout)
+        set_up_label(method_display_widget, self.method_name, display_layout, "method_name_label")
         # 方法参数类型展示区
-        self.set_up_param_info_label(method_display_widget, display_layout)
+        set_up_label(method_display_widget, self.method_param, display_layout, "method_param_label")
         # 方法返回结果类型展示区
-        self.set_up_result_type_label(method_display_widget, display_layout)
+        set_up_label(method_display_widget, self.method_result, display_layout, "result_type_label")
         # 按钮区布局
         button_layout = QVBoxLayout()
         button_layout.setObjectName("button_layout")
@@ -161,27 +169,6 @@ class TabUI:
         # 结果展示区
         self.set_up_result_browser(result_display_widget, result_display_layout)
 
-    def set_up_method_name_label(self, parent: QWidget, layout: QVBoxLayout):
-        """方法名称展示区"""
-        method_name_label = QLabel(parent)
-        method_name_label.setObjectName("method_name_label")
-        method_name_label.setText(self.method_name)
-        layout.addWidget(method_name_label)
-
-    def set_up_param_info_label(self, parent: QWidget, layout: QVBoxLayout):
-        """方法参数类型展示区"""
-        param_label = QLabel(parent)
-        param_label.setObjectName("param_label")
-        param_label.setText(self.method_param)
-        layout.addWidget(param_label)
-
-    def set_up_result_type_label(self, parent: QWidget, layout: QVBoxLayout):
-        """返回结果类型展示区"""
-        result_label = QLabel(parent)
-        result_label.setObjectName("result_label")
-        result_label.setText(self.method_result)
-        layout.addWidget(result_label)
-
     def set_up_send_button(self, parent: QWidget, layout: QVBoxLayout):
         """发送按钮区"""
         self.send_button = QPushButton(parent)
@@ -195,7 +182,7 @@ class TabUI:
         """args参数输入区，表格形式"""
         self.args_edit_tab = QWidget(tab)
         self.args_edit_tab.setObjectName("args_edit_tab")
-        tab.addTab(self.args_edit_tab, "args参数")
+        tab.addTab(self.args_edit_tab, ARGS_TAB_TITLE)
         # 布局
         args_edit_layout = QVBoxLayout(self.args_edit_tab)
         args_edit_layout.setObjectName("args_edit_layout")
@@ -204,15 +191,22 @@ class TabUI:
         self.table_widget.setObjectName("table_widget")
         args_edit_layout.addWidget(self.table_widget)
         self.table_widget.setColumnCount(3)
-        self.table_widget.setHorizontalHeaderLabels(["参数类型", "参数值", "备注"])
-        self.table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_widget.setHorizontalHeaderLabels(PARAM_TABLE_HEADER)
+        # 最后一列完全拉伸
+        self.table_widget.horizontalHeader().setStretchLastSection(True)
+        # 表格列宽均分，最后一列拉伸
+        self.table_widget.setColumnWidth(0, round(self.table_widget.width() / 3))
+        self.table_widget.setColumnWidth(1, round(self.table_widget.width() / 3))
+        # 表格行交替颜色
+        self.table_widget.setAlternatingRowColors(True)
         # 按逗号拆分参数，根据参数个数填充表格
         if self.method_param_list:
             self.table_widget.setRowCount(len(self.method_param_list))
             for row, param_type in enumerate(self.method_param_list):
                 param_type_item = QTableWidgetItem()
                 param_type_item.setText(param_type)
-                param_type_item.setFlags(Qt.NoItemFlags)
+                # flags，必须首先是ItemIsEnabled启用后，才能再设置别的状态
+                param_type_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
                 self.table_widget.setItem(row, 0, param_type_item)
                 param_value_item = QTableWidgetItem()
                 self.table_widget.setItem(row, 1, param_value_item)
@@ -223,7 +217,7 @@ class TabUI:
         """json参数输入区"""
         self.json_edit_tab = QWidget(tab)
         self.json_edit_tab.setObjectName("json_edit_tab")
-        tab.addTab(self.json_edit_tab, "Json参数")
+        tab.addTab(self.json_edit_tab, JSON_TAB_TITLE)
         # 布局
         json_edit_layout = QVBoxLayout(self.json_edit_tab)
         json_edit_layout.setObjectName("json_edit_layout")
@@ -244,10 +238,9 @@ class TabUI:
         result_display_widget = QWidget(result_count_widget)
         result_count_layout.addWidget(result_display_widget, 0, 0, 1, 1)
         result_display_layout = QHBoxLayout(result_display_widget)
-        result_display_label = QLabel(result_display_widget)
-        result_display_label.setObjectName("result_display_label")
-        result_display_label.setText("返回结果样式：")
-        result_display_layout.addWidget(result_display_label)
+        # result_display_label
+        set_up_label(result_display_widget, RESULT_DISPLAY, result_display_layout, "result_display_label")
+        # combo box
         self.result_display_combo_box = QComboBox(result_display_widget)
         self.result_display_combo_box.setObjectName("result_display_combo_box")
         self.result_display_combo_box.addItem("RAW")
@@ -258,15 +251,15 @@ class TabUI:
         # 时间统计
         self.request_time_label = QLabel(result_count_widget)
         self.request_time_label.setObjectName("request_time_label")
-        self.request_time_label.setText("请求时间：")
+        self.request_time_label.setText(REQUEST_TIME)
         result_count_layout.addWidget(self.request_time_label, 0, 1, 1, 1)
         self.response_time_label = QLabel(result_count_widget)
         self.response_time_label.setObjectName("response_time_label")
-        self.response_time_label.setText("响应时间：")
+        self.response_time_label.setText(RESPONSE_TIME)
         result_count_layout.addWidget(self.response_time_label, 0, 2, 1, 1)
         self.result_count_label = QLabel(result_count_widget)
         self.result_count_label.setObjectName("result_count_label")
-        self.result_count_label.setText("接口耗时：")
+        self.result_count_label.setText(COST_TIME)
         result_count_layout.addWidget(self.result_count_label, 0, 3, 1, 1)
 
     def set_up_result_browser(self, parent: QWidget, layout: QVBoxLayout):
@@ -291,7 +284,7 @@ class TabUI:
             else:
                 return self.json_edit_area.toPlainText().strip()
 
-    @exception_handler(pop_fail, "请求接口失败")
+    @exception_handler(pop_fail, REQUEST_FAIL)
     def send_func(self):
         """发送请求"""
         # 点击发送后，首先将按钮置为不可用，文案显示：发送中

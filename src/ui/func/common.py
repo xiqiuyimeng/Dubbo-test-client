@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from functools import wraps
 
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout
+
 _author_ = 'luwt'
 _date_ = '2021/11/1 11:27'
 
@@ -29,4 +31,12 @@ def exception_handler(callback_f, *callback_args):
                 callback_f(f'{callback_args[0]}\n{e}', kwargs.get("window"))
         return handler
     return wrap
+
+
+def set_up_label(parent: QWidget, text: str, layout: [QVBoxLayout, QHBoxLayout], obj_name: str):
+    """建立label"""
+    label = QLabel(parent)
+    label.setObjectName(obj_name)
+    label.setText(text)
+    layout.addWidget(label)
 

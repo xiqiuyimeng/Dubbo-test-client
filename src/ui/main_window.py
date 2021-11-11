@@ -13,6 +13,7 @@ from src.ui.func.tool_bar import fill_tool_bar
 from src.ui.func.tree import tree_node_factory, Context, add_conn_item
 from src.ui.scrollable_widget.scrollable_widget import MyTreeWidget
 from src.ui.tab.tab_bar import MyTabBar
+from src.ui.tab.tab_widget import MyTabWidget
 
 _author_ = 'luwt'
 _date_ = '2021/10/31 17:39'
@@ -52,13 +53,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tab_layout = QtWidgets.QVBoxLayout(self.tab_frame)
         self.tab_layout.setObjectName("tab_layout")
         # 右边tab区
-        self.tab_widget = QtWidgets.QTabWidget(self.tab_frame)
+        self.tab_widget = MyTabWidget(self.tab_frame)
         self.tab_widget.setObjectName("tab_widget")
         self.tab_bar = MyTabBar(self.tab_widget)
         self.tab_bar.setObjectName("tab_bar")
         self.tab_widget.setTabBar(self.tab_bar)
-        # 关闭选项卡事件
-        self.tab_widget.tabCloseRequested.connect(self.tab_widget.removeTab)
         self.tab_layout.addWidget(self.tab_widget)
         # 菜单栏
         self.menubar = QtWidgets.QMenuBar(self)
