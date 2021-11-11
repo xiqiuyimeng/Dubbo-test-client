@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from functools import wraps
 
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout
 
 _author_ = 'luwt'
@@ -33,10 +34,12 @@ def exception_handler(callback_f, *callback_args):
     return wrap
 
 
-def set_up_label(parent: QWidget, text: str, layout: [QVBoxLayout, QHBoxLayout], obj_name: str):
+def set_up_label(parent: QWidget, text: str, obj_name: str):
     """建立label"""
     label = QLabel(parent)
     label.setObjectName(obj_name)
     label.setText(text)
-    layout.addWidget(label)
+    # 设置可选中
+    label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+    return label
 

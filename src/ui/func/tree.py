@@ -9,7 +9,7 @@ from src.function.dubbo.dubbo_client import DubboClient
 from src.ui.box.message_box import pop_fail, pop_ok
 from src.ui.func.common import exception_handler
 from src.ui.tab.tab_ui import TabUI
-from src.ui.tree_item.self_tree_item import MyTreeWidgetItem
+from src.ui.tree_item.my_tree_item import MyTreeWidgetItem
 
 _author_ = 'luwt'
 _date_ = '2021/11/3 22:36'

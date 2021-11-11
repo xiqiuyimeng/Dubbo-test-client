@@ -7,6 +7,14 @@ _date_ = '2021/11/10 10:55'
 SEND_BUTTON = '发送请求'
 SENDING_BUTTON = '请求发送中...'
 
+# 参数类型
+ARGS_PARAM_TYPE = "args"
+JSON_PARAM_TYPE = "json"
+
+# combo box值
+RESULT_DISPLAY_RAW = "RAW"
+RESULT_DISPLAY_JSON = "JSON"
+
 # args参数tab的title
 ARGS_TAB_TITLE = "args参数"
 # json参数tab的title

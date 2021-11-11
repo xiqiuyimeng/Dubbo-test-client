@@ -7,10 +7,14 @@ from PyQt5.QtWidgets import QPlainTextEdit, QTextBrowser, QLabel, QTabWidget, QW
     QHBoxLayout, QGridLayout, QComboBox, QTableWidget, QTableWidgetItem
 
 from src.constant.tab_constant import SEND_BUTTON, SENDING_BUTTON, PARAM_TABLE_HEADER, ARGS_TAB_TITLE, JSON_TAB_TITLE, \
-    RESULT_DISPLAY, REQUEST_TIME, RESPONSE_TIME, COST_TIME, REQUEST_FAIL
+    RESULT_DISPLAY, REQUEST_TIME, RESPONSE_TIME, COST_TIME, REQUEST_FAIL, ARGS_PARAM_TYPE, JSON_PARAM_TYPE, \
+    RESULT_DISPLAY_RAW, RESULT_DISPLAY_JSON
+from src.function.db.tab_sqlite import TabSqlite
 from src.function.dubbo.dubbo_client import DubboClient
 from src.ui.box.message_box import pop_fail
 from src.ui.func.common import exception_handler, set_up_label
+from src.ui.tab.tab_widget import ParamTabWidget
+from src.ui.table.table_widget import ParamTableWidget
 
 _author_ = 'luwt'
 _date_ = '2021/11/4 19:38'
@@ -25,7 +29,8 @@ class TabUI:
             service_path: str,
             method_dict: dict,
             conn_dict: dict,
-            tab_id: str
+            tab_id: str,
+            param_type=None
     ):
         """
         tab页
@@ -46,7 +51,9 @@ class TabUI:
                                     "port": "",
                                     "timeout": ""
                                     }
-        :param tab_id: tab id
+        :param tab_id: tab id, conn_id + service + method_name
+        :param param_type: 参数类型，决定展示哪个参数页，默认空，根据实际参数决定；
+                如果传入且实际参数存在，根据param type决定，取值范围 ['args', 'json', None]
         """
         self.parent = parent
         self.title = title
@@ -54,10 +61,11 @@ class TabUI:
         self.method_dict = method_dict
         self.conn_dict = conn_dict
         self.tab_id = tab_id
+        self.param_type = param_type
         # 预定义
         self.tab: QWidget = ...
         self.send_button: QPushButton = ...
-        self.param_edit_tab_widget: QTabWidget = ...
+        self.param_edit_tab_widget: ParamTabWidget = ...
         self.json_edit_area: QPlainTextEdit = ...
         self.request_time_label: QLabel = ...
         self.response_time_label: QLabel = ...
@@ -65,10 +73,9 @@ class TabUI:
         self.result_browser: QTextBrowser = ...
         self.result_display_combo_box: QComboBox = ...
         self.args_edit_tab: QWidget = ...
-        self.table_widget: QTableWidget = ...
+        self.table_widget: ParamTableWidget = ...
         self.json_edit_tab: QWidget = ...
-        self.method_param_list = self.method_dict.get("param_type").split(",") \
-            if self.method_dict.get("param_type") else list()
+        self.method_param_list = self.get_param_list()
         self.rpc_result = None
         self.conn_name = f"连接名称：{self.conn_dict.get('name')}"
         self.service_path_name = f"服务路径：{self.service_path}"
@@ -76,15 +83,20 @@ class TabUI:
         self.method_param = f"参数详情：{self.method_dict.get('param_type')}"
         self.method_result = f"返回类型：{self.method_dict.get('result_type')}"
 
+        self.tab_obj: dict = ...
+
     def set_up_tab(self):
         self.tab = QWidget()
         # 设置tab标题
         self.parent.addTab(self.tab, self.title)
+        # 将tab_id 写入到所属tab页中
         self.tab.setProperty("tab_id", self.tab_id)
         # 将气泡提示需要的文案提前放入tab属性中
         tool_tip = f'{self.title}\n{self.conn_name}\n{self.service_path_name}\n' \
                    f'{self.method_name}\n{self.method_param}\n{self.method_result}'
         self.tab.setProperty("tool_tip", tool_tip)
+        # 将当前标签页数据存储起来，保存数据库使用
+        self.tab.setProperty("tab_obj", self.tab_obj)
         # tab页，垂直布局
         tab_vertical_layout = QVBoxLayout(self.tab)
         tab_vertical_layout.setObjectName("tab_vertical_layout")
@@ -101,6 +113,15 @@ class TabUI:
         tab_vertical_layout.setStretch(2, 5)
         # 以刚打开的tab为当前tab
         self.parent.setCurrentWidget(self.tab)
+        # 处理tab obj
+        self.set_up_tab_obj()
+        # 如果存在id，证明是回显数据
+        if self.tab_obj.get("id"):
+            self.fill_data()
+
+    def get_param_list(self):
+        return self.method_dict.get("param_type").split(",") \
+            if self.method_dict.get("param_type") else list()
 
     def set_up_method_display_area(self, tab: QWidget, layout: QVBoxLayout):
         """方法展示区，主要是：方法名称，方法参数类型，方法返回类型，发送请求按钮"""
@@ -117,15 +138,20 @@ class TabUI:
         display_layout.setObjectName("display_layout")
         method_display_layout.addLayout(display_layout)
         # 连接名称展示区
-        set_up_label(method_display_widget, self.conn_name, display_layout, "conn_name_label")
+        conn_name_label = set_up_label(method_display_widget, self.conn_name, "conn_name_label")
+        display_layout.addWidget(conn_name_label)
         # 服务路径展示区
-        set_up_label(method_display_widget, self.service_path_name, display_layout, "service_path_label")
+        service_path_label = set_up_label(method_display_widget, self.service_path_name, "service_path_label")
+        display_layout.addWidget(service_path_label)
         # 方法名称展示区
-        set_up_label(method_display_widget, self.method_name, display_layout, "method_name_label")
+        method_name_label = set_up_label(method_display_widget, self.method_name, "method_name_label")
+        display_layout.addWidget(method_name_label)
         # 方法参数类型展示区
-        set_up_label(method_display_widget, self.method_param, display_layout, "method_param_label")
+        method_param_label = set_up_label(method_display_widget, self.method_param, "method_param_label")
+        display_layout.addWidget(method_param_label)
         # 方法返回结果类型展示区
-        set_up_label(method_display_widget, self.method_result, display_layout, "result_type_label")
+        result_type_label = set_up_label(method_display_widget, self.method_result, "result_type_label")
+        display_layout.addWidget(result_type_label)
         # 按钮区布局
         button_layout = QVBoxLayout()
         button_layout.setObjectName("button_layout")
@@ -138,22 +164,16 @@ class TabUI:
 
     def set_up_param_edit_area(self, tab: QWidget, layout: QVBoxLayout):
         """发送参数编辑区，作为一个tab区，第一个tab为args类型，第二个tab为json类型"""
-        self.param_edit_tab_widget = QTabWidget(tab)
+        self.param_edit_tab_widget = ParamTabWidget(tab)
         self.param_edit_tab_widget.setObjectName("param_edit_tab_widget")
         layout.addWidget(self.param_edit_tab_widget)
         # 第一个tab，args类型
         self.set_up_param_args_edit_tab(self.param_edit_tab_widget)
         # 第二个tab，json类型
         self.set_up_param_json_edit_tab(self.param_edit_tab_widget)
-        # 根据参数个数来决定哪个tab为当前tab
-        if self.method_param_list:
-            if len(self.method_param_list) == 1:
-                self.param_edit_tab_widget.setCurrentWidget(self.json_edit_tab)
-            else:
-                self.param_edit_tab_widget.setCurrentWidget(self.args_edit_tab)
-        else:
-            # 关闭tab
-            self.param_edit_tab_widget.hide()
+        # 决定哪个标签页置顶
+        self.param_edit_tab_widget.decide_current_tab(self.method_param_list, self.param_type,
+                                                      self.args_edit_tab, self.json_edit_tab)
 
     def set_up_result_display_area(self, tab: QWidget, layout: QVBoxLayout):
         """返回结果展示区，包括耗时统计区，下拉框, 结果打印区"""
@@ -187,31 +207,11 @@ class TabUI:
         args_edit_layout = QVBoxLayout(self.args_edit_tab)
         args_edit_layout.setObjectName("args_edit_layout")
         # 表格区
-        self.table_widget = QTableWidget()
+        self.table_widget = ParamTableWidget()
         self.table_widget.setObjectName("table_widget")
         args_edit_layout.addWidget(self.table_widget)
-        self.table_widget.setColumnCount(3)
-        self.table_widget.setHorizontalHeaderLabels(PARAM_TABLE_HEADER)
-        # 最后一列完全拉伸
-        self.table_widget.horizontalHeader().setStretchLastSection(True)
-        # 表格列宽均分，最后一列拉伸
-        self.table_widget.setColumnWidth(0, round(self.table_widget.width() / 3))
-        self.table_widget.setColumnWidth(1, round(self.table_widget.width() / 3))
-        # 表格行交替颜色
-        self.table_widget.setAlternatingRowColors(True)
-        # 按逗号拆分参数，根据参数个数填充表格
-        if self.method_param_list:
-            self.table_widget.setRowCount(len(self.method_param_list))
-            for row, param_type in enumerate(self.method_param_list):
-                param_type_item = QTableWidgetItem()
-                param_type_item.setText(param_type)
-                # flags，必须首先是ItemIsEnabled启用后，才能再设置别的状态
-                param_type_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                self.table_widget.setItem(row, 0, param_type_item)
-                param_value_item = QTableWidgetItem()
-                self.table_widget.setItem(row, 1, param_value_item)
-                param_desc_item = QTableWidgetItem()
-                self.table_widget.setItem(row, 2, param_desc_item)
+        # 按参数列表初始化表格
+        self.table_widget.init_table(self.method_param_list)
 
     def set_up_param_json_edit_tab(self, tab: QTabWidget):
         """json参数输入区"""
@@ -239,27 +239,22 @@ class TabUI:
         result_count_layout.addWidget(result_display_widget, 0, 0, 1, 1)
         result_display_layout = QHBoxLayout(result_display_widget)
         # result_display_label
-        set_up_label(result_display_widget, RESULT_DISPLAY, result_display_layout, "result_display_label")
+        result_display_label = set_up_label(result_display_widget, RESULT_DISPLAY, "result_display_label")
+        result_display_layout.addWidget(result_display_label)
         # combo box
         self.result_display_combo_box = QComboBox(result_display_widget)
         self.result_display_combo_box.setObjectName("result_display_combo_box")
-        self.result_display_combo_box.addItem("RAW")
-        self.result_display_combo_box.addItem("JSON")
+        self.result_display_combo_box.addItem(RESULT_DISPLAY_RAW)
+        self.result_display_combo_box.addItem(RESULT_DISPLAY_JSON)
         self.result_display_combo_box.setCurrentIndex(1)
         self.result_display_combo_box.currentIndexChanged.connect(lambda: self.combo_box_change_func())
         result_display_layout.addWidget(self.result_display_combo_box)
         # 时间统计
-        self.request_time_label = QLabel(result_count_widget)
-        self.request_time_label.setObjectName("request_time_label")
-        self.request_time_label.setText(REQUEST_TIME)
+        self.request_time_label = set_up_label(result_count_widget, REQUEST_TIME, "request_time_label")
         result_count_layout.addWidget(self.request_time_label, 0, 1, 1, 1)
-        self.response_time_label = QLabel(result_count_widget)
-        self.response_time_label.setObjectName("response_time_label")
-        self.response_time_label.setText(RESPONSE_TIME)
+        self.response_time_label = set_up_label(result_count_widget, RESPONSE_TIME, "response_time_label")
         result_count_layout.addWidget(self.response_time_label, 0, 2, 1, 1)
-        self.result_count_label = QLabel(result_count_widget)
-        self.result_count_label.setObjectName("result_count_label")
-        self.result_count_label.setText(COST_TIME)
+        self.result_count_label = set_up_label(result_count_widget, COST_TIME, "result_count_label")
         result_count_layout.addWidget(self.result_count_label, 0, 3, 1, 1)
 
     def set_up_result_browser(self, parent: QWidget, layout: QVBoxLayout):
@@ -356,4 +351,40 @@ class TabUI:
         else:
             self.result_browser.setText(self.rpc_result)
 
+    def set_up_tab_obj(self):
+        """如果之前没有保存过，初始化一个新的tab_obj，按当前tab页的属性进行构造"""
+        saved_tab_obj = TabSqlite().select_by_tab_id(self.tab_id)
+        if saved_tab_obj:
+            self.tab_obj = dict(zip(saved_tab_obj._fields, saved_tab_obj))
+        else:
+            self.tab_obj = dict()
+            # id tab_id param_type param_args param_json param_desc
+            # result_display request_time response_time method_cost result
+            self.tab_obj['tab_id'] = self.tab_id
+            self.tab_obj['param_type'] = self.param_type
+            self.tab_obj['result_display'] = self.result_display_combo_box.currentText()
 
+    def fill_data(self):
+        # 处理参数类型
+        param_type = self.tab_obj.get('param_type')
+        self.param_edit_tab_widget.decide_current_tab(self.method_param_list, param_type,
+                                                      self.args_edit_tab, self.json_edit_tab)
+        # 填充param表格区
+        param_args = self.tab_obj.get('param_args')
+        if param_args:
+            self.table_widget.fill_table_column(param_args.split(","), 1)
+        param_desc = self.tab_obj.get('param_desc')
+        if param_desc:
+            self.table_widget.fill_table_column(param_desc.split(","), 2)
+        # 填充param json区
+        self.json_edit_area.setPlainText(self.tab_obj.get('param_json'))
+        # combo box
+        self.result_display_combo_box.setCurrentIndex(self.tab_obj.get('result_display'))
+        # 请求时间
+        self.request_time_label.setText(self.tab_obj.get('request_time'))
+        # 响应时间
+        self.response_time_label.setText(self.tab_obj.get('response_time'))
+        # 耗时
+        self.result_count_label.setText(self.tab_obj.get('method_cost'))
+        # 结果
+        self.result_browser.setText(self.tab_obj.get('result'))
