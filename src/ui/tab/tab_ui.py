@@ -2,14 +2,12 @@
 import json
 from datetime import datetime
 
-from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QPlainTextEdit, QTextBrowser, QLabel, QTabWidget, QWidget, QVBoxLayout, QPushButton, \
-    QHBoxLayout, QGridLayout, QComboBox, QTableWidget, QTableWidgetItem
+    QHBoxLayout, QGridLayout, QComboBox
 
-from src.constant.tab_constant import SEND_BUTTON, SENDING_BUTTON, PARAM_TABLE_HEADER, ARGS_TAB_TITLE, JSON_TAB_TITLE, \
-    RESULT_DISPLAY, REQUEST_TIME, RESPONSE_TIME, COST_TIME, REQUEST_FAIL, ARGS_PARAM_TYPE, JSON_PARAM_TYPE, \
-    RESULT_DISPLAY_RAW, RESULT_DISPLAY_JSON
-from src.function.db.tab_sqlite import TabSqlite
+from src.constant.tab_constant import SEND_BUTTON, SENDING_BUTTON, ARGS_TAB_TITLE, JSON_TAB_TITLE, \
+    RESULT_DISPLAY, REQUEST_TIME, RESPONSE_TIME, COST_TIME, REQUEST_FAIL, RESULT_DISPLAY_RAW, RESULT_DISPLAY_JSON
+from src.function.db.tab_sqlite import TabSqlite, TabObj
 from src.function.dubbo.dubbo_client import DubboClient
 from src.ui.box.message_box import pop_fail
 from src.ui.func.common import exception_handler, set_up_label
@@ -30,7 +28,6 @@ class TabUI:
             method_dict: dict,
             conn_dict: dict,
             tab_id: str,
-            param_type=None
     ):
         """
         tab页
@@ -52,8 +49,6 @@ class TabUI:
                                     "timeout": ""
                                     }
         :param tab_id: tab id, conn_id + service + method_name
-        :param param_type: 参数类型，决定展示哪个参数页，默认空，根据实际参数决定；
-                如果传入且实际参数存在，根据param type决定，取值范围 ['args', 'json', None]
         """
         self.parent = parent
         self.title = title
@@ -61,7 +56,6 @@ class TabUI:
         self.method_dict = method_dict
         self.conn_dict = conn_dict
         self.tab_id = tab_id
-        self.param_type = param_type
         # 预定义
         self.tab: QWidget = ...
         self.send_button: QPushButton = ...
@@ -82,8 +76,14 @@ class TabUI:
         self.method_name = f"方法名称：{self.method_dict.get('method_name')}"
         self.method_param = f"参数详情：{self.method_dict.get('param_type')}"
         self.method_result = f"返回类型：{self.method_dict.get('result_type')}"
-
-        self.tab_obj: dict = ...
+        # 从库里读取的数据
+        self.tab_obj: TabObj = ...
+        # 维护的当前页数据
+        self.tab_obj_dict: dict = ...
+        # 当前是否已保存tab
+        self.tab_saved_flag: bool = ...
+        # 是否正在回显数据
+        self.fill_flag = False
 
     def set_up_tab(self):
         self.tab = QWidget()
@@ -95,8 +95,6 @@ class TabUI:
         tool_tip = f'{self.title}\n{self.conn_name}\n{self.service_path_name}\n' \
                    f'{self.method_name}\n{self.method_param}\n{self.method_result}'
         self.tab.setProperty("tool_tip", tool_tip)
-        # 将当前标签页数据存储起来，保存数据库使用
-        self.tab.setProperty("tab_obj", self.tab_obj)
         # tab页，垂直布局
         tab_vertical_layout = QVBoxLayout(self.tab)
         tab_vertical_layout.setObjectName("tab_vertical_layout")
@@ -115,8 +113,8 @@ class TabUI:
         self.parent.setCurrentWidget(self.tab)
         # 处理tab obj
         self.set_up_tab_obj()
-        # 如果存在id，证明是回显数据
-        if self.tab_obj.get("id"):
+        # 如果保存过，回显数据
+        if self.tab_saved_flag:
             self.fill_data()
 
     def get_param_list(self):
@@ -172,8 +170,9 @@ class TabUI:
         # 第二个tab，json类型
         self.set_up_param_json_edit_tab(self.param_edit_tab_widget)
         # 决定哪个标签页置顶
-        self.param_edit_tab_widget.decide_current_tab(self.method_param_list, self.param_type,
-                                                      self.args_edit_tab, self.json_edit_tab)
+        self.param_edit_tab_widget.decide_current_tab(self.method_param_list)
+        # 当参数tab页切换时，触发保存
+        self.param_edit_tab_widget.currentChanged.connect(self.save_param_type)
 
     def set_up_result_display_area(self, tab: QWidget, layout: QVBoxLayout):
         """返回结果展示区，包括耗时统计区，下拉框, 结果打印区"""
@@ -207,11 +206,14 @@ class TabUI:
         args_edit_layout = QVBoxLayout(self.args_edit_tab)
         args_edit_layout.setObjectName("args_edit_layout")
         # 表格区
-        self.table_widget = ParamTableWidget()
+        self.table_widget = ParamTableWidget(self)
         self.table_widget.setObjectName("table_widget")
         args_edit_layout.addWidget(self.table_widget)
         # 按参数列表初始化表格
         self.table_widget.init_table(self.method_param_list)
+        # args 表格区输入时，触发保存
+        self.table_widget.item_data_changed.connect(lambda row, col, text:
+                                                    self.save_args_table_col(row, col, text))
 
     def set_up_param_json_edit_tab(self, tab: QTabWidget):
         """json参数输入区"""
@@ -225,6 +227,8 @@ class TabUI:
         self.json_edit_area = QPlainTextEdit(self.json_edit_tab)
         self.json_edit_area.setObjectName("json_edit_area")
         json_edit_layout.addWidget(self.json_edit_area)
+        # json参数区输入时，触发保存
+        self.json_edit_area.textChanged.connect(self.save_json_area)
 
     def set_up_result_count(self, parent: QWidget, layout: QVBoxLayout):
         """统计耗时，下拉框决定返回结果展示样式"""
@@ -265,15 +269,13 @@ class TabUI:
 
     def get_param(self):
         """获取入参"""
-        # 如果参数tab页，那么说明有参数
+        # 如果参数tab页可见，那么说明有参数
         if self.param_edit_tab_widget.isVisible():
             # args参数
             if self.param_edit_tab_widget.currentIndex() == 0:
-                # 将表格当前项置空，这样可以正常获取当前光标所在的表格内容，否则获取不到
-                self.table_widget.setCurrentItem(None)
                 param_args = list()
                 for row in range(len(self.method_param_list)):
-                    args = self.table_widget.item(row, 1).text().strip()
+                    args = self.table_widget.cellWidget(row, 1).text().strip()
                     param_args.append(args)
                 return ",".join(param_args)
             else:
@@ -303,6 +305,8 @@ class TabUI:
         finally:
             # 恢复发送按钮
             self.enable_send_button()
+            # 保存结果信息
+            self.save_result()
 
     def disable_send_button(self):
         # 设置按钮不可用
@@ -333,6 +337,8 @@ class TabUI:
             self.display_result_browser()
 
     def combo_box_change_func(self):
+        # 保存combo box状态
+        self.save_result_display()
         original_text = self.result_browser.toPlainText()
         # 如果之前有值再操作
         if original_text:
@@ -340,7 +346,7 @@ class TabUI:
             self.display_result_browser()
 
     def display_result_browser(self):
-        if self.result_display_combo_box.currentText() == "JSON":
+        if self.result_display_combo_box.currentText() == RESULT_DISPLAY_JSON:
             # 如果解析出错，应该用原生展示
             try:
                 json_format_result = json.dumps(json.loads(self.rpc_result), indent=4, ensure_ascii=False)
@@ -352,39 +358,106 @@ class TabUI:
             self.result_browser.setText(self.rpc_result)
 
     def set_up_tab_obj(self):
-        """如果之前没有保存过，初始化一个新的tab_obj，按当前tab页的属性进行构造"""
-        saved_tab_obj = TabSqlite().select_by_tab_id(self.tab_id)
-        if saved_tab_obj:
-            self.tab_obj = dict(zip(saved_tab_obj._fields, saved_tab_obj))
+        """如果之前没有保存过，初始化一个新的tab_obj_dict，按当前tab页的属性进行构造"""
+        self.tab_obj = TabSqlite().select_by_tab_id(self.tab_id)
+        self.tab_saved_flag = self.tab_obj.id is not None
+        if self.tab_saved_flag:
+            self.tab_obj_dict = dict(zip(self.tab_obj._fields, self.tab_obj))
+            # 处理下两个dict
+            self.tab_obj_dict['param_args_dict'] = eval(self.tab_obj.param_args_dict)
+            self.tab_obj_dict['param_desc_dict'] = eval(self.tab_obj.param_desc_dict)
         else:
-            self.tab_obj = dict()
-            # id tab_id param_type param_args param_json param_desc
+            self.tab_obj_dict = dict()
+            # id conn_id tab_id param_type param_args_dict param_json param_desc_dict
             # result_display request_time response_time method_cost result
-            self.tab_obj['tab_id'] = self.tab_id
-            self.tab_obj['param_type'] = self.param_type
-            self.tab_obj['result_display'] = self.result_display_combo_box.currentText()
+            self.tab_obj_dict['conn_id'] = self.conn_dict.get("id")
+            self.tab_obj_dict['tab_id'] = self.tab_id
+            self.tab_obj_dict['param_type'] = self.param_edit_tab_widget.currentIndex()
+            self.tab_obj_dict['param_args_dict'] = dict()
+            self.tab_obj_dict['param_desc_dict'] = dict()
+            self.tab_obj_dict['result_display'] = self.result_display_combo_box.currentIndex()
 
     def fill_data(self):
+        self.fill_flag = True
         # 处理参数类型
-        param_type = self.tab_obj.get('param_type')
-        self.param_edit_tab_widget.decide_current_tab(self.method_param_list, param_type,
-                                                      self.args_edit_tab, self.json_edit_tab)
+        param_type = self.tab_obj.param_type
+        self.param_edit_tab_widget.decide_current_tab(self.method_param_list, param_type)
         # 填充param表格区
-        param_args = self.tab_obj.get('param_args')
-        if param_args:
-            self.table_widget.fill_table_column(param_args.split(","), 1)
-        param_desc = self.tab_obj.get('param_desc')
-        if param_desc:
-            self.table_widget.fill_table_column(param_desc.split(","), 2)
+        param_args_dict = eval(self.tab_obj.param_args_dict)
+        if param_args_dict:
+            self.table_widget.fill_table_column(list(param_args_dict.values()), 1)
+        param_desc_dict = eval(self.tab_obj.param_desc_dict)
+        if param_desc_dict:
+            self.table_widget.fill_table_column(list(param_desc_dict.values()), 2)
         # 填充param json区
-        self.json_edit_area.setPlainText(self.tab_obj.get('param_json'))
+        self.json_edit_area.setPlainText(self.tab_obj.param_json)
         # combo box
-        self.result_display_combo_box.setCurrentIndex(self.tab_obj.get('result_display'))
+        self.result_display_combo_box.setCurrentIndex(self.tab_obj.result_display)
         # 请求时间
-        self.request_time_label.setText(self.tab_obj.get('request_time'))
+        self.request_time_label.setText(self.tab_obj.request_time)
         # 响应时间
-        self.response_time_label.setText(self.tab_obj.get('response_time'))
+        self.response_time_label.setText(self.tab_obj.response_time)
         # 耗时
-        self.result_count_label.setText(self.tab_obj.get('method_cost'))
+        self.result_count_label.setText(self.tab_obj.method_cost)
         # 结果
-        self.result_browser.setText(self.tab_obj.get('result'))
+        self.rpc_result = self.tab_obj.result
+        self.display_result_browser()
+        # 重置标志位
+        self.fill_flag = False
+
+    # ---------------------------- save tab func ---------------------------- #
+    def save_param_type(self, index):
+        """保存当前的param_type"""
+        if not self.fill_flag:
+            self.tab_obj_dict['param_type'] = index
+            self.save_tab_change()
+
+    def save_args_table_col(self, row, col, text):
+        """保存当前的args参数表格内容"""
+        if not self.fill_flag:
+            if col == 1:
+                # 字典保存形式
+                self.tab_obj_dict['param_args_dict'][row] = text
+            else:
+                self.tab_obj_dict['param_desc_dict'][row] = text
+            self.save_tab_change()
+
+    def save_json_area(self):
+        """保存当前的json编辑区"""
+        if not self.fill_flag:
+            self.tab_obj_dict['param_json'] = self.json_edit_area.toPlainText()
+            self.save_tab_change()
+
+    def save_result_display(self):
+        """保存当前combo box状态"""
+        if not self.fill_flag:
+            self.tab_obj_dict['result_display'] = self.result_display_combo_box.currentIndex()
+            self.save_tab_change()
+
+    def save_result(self):
+        """保存和结果相关内容，请求时间，响应时间，耗时，结果"""
+        if not self.fill_flag:
+            self.tab_obj_dict['request_time'] = self.request_time_label.text()
+            self.tab_obj_dict['response_time'] = self.response_time_label.text()
+            self.tab_obj_dict['method_cost'] = self.result_count_label.text()
+            self.tab_obj_dict['result'] = self.rpc_result
+            self.save_tab_change()
+
+    def save_tab_change(self):
+        """保存tab页信息"""
+        self.tab_obj_dict['param_args_dict'] = str(self.tab_obj_dict['param_args_dict'])
+        self.tab_obj_dict['param_desc_dict'] = str(self.tab_obj_dict['param_desc_dict'])
+        for field in TabObj._fields:
+            self.tab_obj_dict[field] = self.tab_obj_dict.get(field)
+        tab_obj = TabObj(**self.tab_obj_dict)
+        # 如果已经保存过，直接更新，如果还没保存过，需要先插入一次
+        if self.tab_saved_flag:
+            TabSqlite().update_selective(tab_obj)
+        else:
+            TabSqlite().insert(tab_obj)
+            latest_tab_obj = TabSqlite().select_latest_one()
+            self.tab_obj_dict['id'] = latest_tab_obj.id
+            self.tab_saved_flag = True
+        # 保存结束后，将两个dict转回字典
+        self.tab_obj_dict['param_args_dict'] = eval(self.tab_obj_dict['param_args_dict'])
+        self.tab_obj_dict['param_desc_dict'] = eval(self.tab_obj_dict['param_desc_dict'])

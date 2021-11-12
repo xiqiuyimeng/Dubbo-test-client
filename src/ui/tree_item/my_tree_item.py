@@ -7,9 +7,8 @@ _date_ = '2021/11/3 22:38'
 
 class MyTreeWidgetItem(QTreeWidgetItem):
 
-    def __init__(self, tree, parent):
+    def __init__(self, parent):
         super().__init__(parent)
-        self.tree = tree
 
     def setText(self, column, text):
         if not isinstance(text, str):

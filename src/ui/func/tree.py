@@ -19,21 +19,20 @@ def add_conn_item(window, conn):
     """添加连接树节点"""
     # item属性：id name host port timeout
     # 根节点，展示连接的列表，将连接信息写入隐藏列
-    make_tree_item(window, window.tree_widget, conn.name, QIcon(":/icon/mysql_conn_icon.png"),
+    make_tree_item(window.tree_widget, conn.name, QIcon(":/icon/mysql_conn_icon.png"),
                    hidden_text=dict(zip(conn._fields, conn)))
 
 
-def make_tree_item(window, parent, text, icon, checkbox=None, hidden_text=None):
+def make_tree_item(parent, text, icon, checkbox=None, hidden_text=None):
     """
     构造树的子项
-    :param window: 启动的主窗口界面对象
     :param parent: 要构造子项的父节点元素
     :param text: 构造的子节点信息
     :param icon: 图标，该元素的展示图标对象
     :param checkbox: 构造的子节点的复选框，可无。若存在，将当前状态写入第三列中
     :param hidden_text: 隐藏信息
     """
-    item = MyTreeWidgetItem(window.tree_widget, parent)
+    item = MyTreeWidgetItem(parent)
     item.setIcon(0, icon)
     item.setText(0, text)
     if hidden_text:
@@ -120,7 +119,7 @@ class TreeNodeConn(TreeNodeAbstract, ABC):
             client = DubboClient(conn_info.get("host"), conn_info.get("port"), conn_info.get("timeout"))
             service_list = client.get_service_list()
             for service in service_list:
-                make_tree_item(window, item, service, QIcon(":/icon/mysql_conn_icon.png"))
+                make_tree_item(item, service, QIcon(":/icon/mysql_conn_icon.png"))
 
     def close_item(self, item, window):
         """
@@ -304,7 +303,7 @@ class TreeNodeService(TreeNodeAbstract, ABC):
             method_list = client.get_method_list(item.text(0))
             for method_dict in method_list:
                 # 将方法详细信息写入隐藏列
-                make_tree_item(window, item, method_dict.get("method_name"),
+                make_tree_item(item, method_dict.get("method_name"),
                                QIcon(":/icon/mysql_conn_icon.png"), hidden_text=method_dict)
 
     def close_item(self, item, window):
