@@ -11,7 +11,7 @@ from src.function.db.tab_sqlite import TabSqlite, TabObj
 from src.function.dubbo.dubbo_client import DubboClient
 from src.ui.box.message_box import pop_fail
 from src.ui.func.common import exception_handler, set_up_label
-from src.ui.tab.tab_widget import ParamTabWidget
+from src.ui.tab.tab_widget import ParamTabWidget, MyTabWidget
 from src.ui.table.table_widget import ParamTableWidget
 
 _author_ = 'luwt'
@@ -22,7 +22,7 @@ class TabUI:
 
     def __init__(
             self,
-            parent: QTabWidget,
+            parent: MyTabWidget,
             title: str,
             service_path: str,
             method_dict: dict,
@@ -85,10 +85,8 @@ class TabUI:
         # 是否正在回显数据
         self.fill_flag = False
 
-    def set_up_tab(self):
+    def set_up_tab(self, tab_order=None):
         self.tab = QWidget()
-        # 设置tab标题
-        self.parent.addTab(self.tab, self.title)
         # 将tab_id 写入到所属tab页中
         self.tab.setProperty("tab_id", self.tab_id)
         # 将气泡提示需要的文案提前放入tab属性中
@@ -109,13 +107,19 @@ class TabUI:
         tab_vertical_layout.setStretch(0, 1)
         tab_vertical_layout.setStretch(1, 3)
         tab_vertical_layout.setStretch(2, 5)
-        # 以刚打开的tab为当前tab
-        self.parent.setCurrentWidget(self.tab)
+
         # 处理tab obj
         self.set_up_tab_obj()
         # 如果保存过，回显数据
         if self.tab_saved_flag:
             self.fill_data()
+        if tab_order:
+            # 按顺序插入到 parent temp_tab_list 中
+            self.parent.temp_tab_list.append((tab_order, self.tab, self.title))
+        else:
+            # 添加tab，设置tab标题
+            self.parent.addTab(self.tab, self.title)
+            self.parent.setCurrentWidget(self.tab)
 
     def get_param_list(self):
         return self.method_dict.get("param_type").split(",") \
@@ -454,9 +458,8 @@ class TabUI:
         if self.tab_saved_flag:
             TabSqlite().update_selective(tab_obj)
         else:
-            TabSqlite().insert(tab_obj)
-            latest_tab_obj = TabSqlite().select_latest_one()
-            self.tab_obj_dict['id'] = latest_tab_obj.id
+            tab_obj_id = TabSqlite().insert(tab_obj)
+            self.tab_obj_dict['id'] = tab_obj_id
             self.tab_saved_flag = True
         # 保存结束后，将两个dict转回字典
         self.tab_obj_dict['param_args_dict'] = eval(self.tab_obj_dict['param_args_dict'])

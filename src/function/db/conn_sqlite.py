@@ -25,6 +25,7 @@ conn_sql = {
     'update_selective': 'update connection set ',
     'delete': 'delete from connection where id = ?',
     'select': 'select * from connection',
+    'select_insert_id': 'select id from connection order by id desc limit 1',
     'select_name_exist': 'select count(*) > 0 from connection where name = ?',
     'select_id_by_name': 'select id from connection where name = ?',
 }
@@ -57,12 +58,6 @@ class ConnSqlite(SqliteBasic):
     def select_one(self, conn_id):
         sql = conn_sql.get('select') + ' where id = ?'
         self.cursor.execute(sql, (conn_id,))
-        data = self.cursor.fetchone()
-        return Connection(*data)
-
-    def select_latest_one(self):
-        sql = conn_sql.get('select') + ' order by id desc limit 1'
-        self.cursor.execute(sql)
         data = self.cursor.fetchone()
         return Connection(*data)
 

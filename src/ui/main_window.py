@@ -10,7 +10,7 @@ from src.ui.dialog.conn.conn_dialog import ConnDialog
 from src.ui.func.common import keep_center
 from src.ui.func.menu_bar import fill_menu_bar
 from src.ui.func.tool_bar import fill_tool_bar
-from src.ui.func.tree import tree_node_factory, Context, add_conn_item
+from src.ui.func.tree import tree_node_factory, Context, add_conn_item, reopen_conn_item, add_conn_tree_item
 from src.ui.scrollable_widget.scrollable_widget import MyTreeWidget
 from src.ui.tab.tab_bar import MyTabBar
 from src.ui.tab.tab_widget import MyTabWidget
@@ -130,10 +130,16 @@ class MainWindow(QtWidgets.QMainWindow):
     def get_saved_conns(self):
         """获取所有已存储的连接，生成页面树结构第一层"""
         conns = ConnSqlite().select_all()
+        self.tab_widget.reopen_flag = True
         for conn in conns:
             # conn属性：id name host port timeout
             # 根节点，展示连接的列表，将连接信息写入隐藏列
-            add_conn_item(self, conn)
+            item = add_conn_tree_item(self, conn)
+            # 查出当前连接有没有保存在打开项中
+            reopen_conn_item(self, item, parent_id=conn.id)
+        self.tab_widget.reopen_flag = False
+        # 按顺序排列tab
+        self.tab_widget.insert_tab_by_order()
 
     def get_tree_list(self):
         """获取树的子节点，双击触发，连接 -> service -> method，按顺序读取出来"""

@@ -36,6 +36,7 @@ tab_sql = {
     'update_selective': 'update tab set ',
     'delete': 'delete from tab where id = ?',
     'select': 'select * from tab ',
+    'select_insert_id': 'select id from tab order by id desc limit 1',
     'select_by_tab_id': 'select * from tab where tab_id = ?'
 }
 
@@ -63,9 +64,3 @@ class TabSqlite(SqliteBasic):
         self.cursor.execute(sql, (tab_id, ))
         data = self.cursor.fetchone()
         return TabObj(*data) if data else TabObj(*((None,) * len(TabObj._fields)))
-
-    def select_latest_one(self):
-        sql = tab_sql.get('select') + ' order by id desc limit 1'
-        self.cursor.execute(sql)
-        data = self.cursor.fetchone()
-        return TabObj(*data)

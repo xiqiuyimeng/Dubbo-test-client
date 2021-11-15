@@ -204,8 +204,8 @@ class ConnDialog(QDialog):
                 ConnSqlite().update_selective(new_conn)
                 box_flag = True
         elif self.dialog_title == ADD_CONN_MENU:
-            ConnSqlite().insert(new_conn)
-            new_conn = ConnSqlite().select_latest_one()
+            conn_id = ConnSqlite().insert(new_conn)
+            new_conn = Connection(conn_id, *new_conn[1:])
             box_flag = True
         if box_flag:
             pop_ok(SAVE_CONN_SUCCESS_PROMPT, self.dialog_title, self)

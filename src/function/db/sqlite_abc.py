@@ -5,7 +5,7 @@ _date_ = '2021/11/1 18:00'
 
 class SqliteBasic:
 
-    def __init__(self, sql_dict, conn, cursor):
+    def __init__(self, sql_dict: dict, conn, cursor):
         """操作sqlite数据库的基类"""
         self.sql_dict = sql_dict
         self.conn = conn
@@ -17,6 +17,11 @@ class SqliteBasic:
         sql = self.sql_dict.get('insert') + f'({field_str}) values ({value_placeholder})'
         self.cursor.execute(sql, mapping_obj[1:])
         self.conn.commit()
+        # 获取插入的id
+        select_id_sql = self.sql_dict.get('select_insert_id')
+        if select_id_sql:
+            self.cursor.execute(select_id_sql)
+            return self.cursor.fetchone()[0]
 
     def delete(self, obj_id):
         sql = self.sql_dict.get('delete')
