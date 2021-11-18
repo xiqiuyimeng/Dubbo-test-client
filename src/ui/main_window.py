@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import QVBoxLayout, QToolBar
 
 from src.constant.conn_dialog_constant import ADD_CONN_MENU
 from src.function.db.conn_sqlite import Connection, ConnSqlite
+from src.ui.async_func.async_reopen_item import AsyncReopen
 from src.ui.dialog.conn.conn_dialog import ConnDialog
 from src.ui.func.common import keep_center
 from src.ui.func.menu_bar import fill_menu_bar
@@ -45,6 +46,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_widget = MyTreeWidget(self.central_widget)
         self.tree_widget.setObjectName("tree_widget")
         self.tree_widget.headerItem().setText(0, "连接列表")
+        self.tree_widget.headerItem().setText(1, "隐藏列1")
+        self.tree_widget.headerItem().setText(2, "隐藏列2")
         self.tree_layout.addWidget(self.tree_widget)
         # 右边tab区frame
         self.tab_frame = QtWidgets.QFrame(self.central_widget)
@@ -105,8 +108,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.main_layout.addWidget(self.central_widget)
 
     def bind_action(self):
-        # 初始化树：初始化获取树结构的第一层元素，为数据库连接列表
-        self.get_saved_conns()
+        # 异步重新打开上次退出时的工作状态
+        AsyncReopen(self, self.tree_widget, self.tab_widget).reopen_item_start()
         # 双击树节点事件
         self.tree_widget.doubleClicked.connect(self.get_tree_list)
         # 点击、展开、收起节点，都需要让列根据内容自适应，从而可以保证水平滚动条
@@ -126,20 +129,6 @@ class MainWindow(QtWidgets.QMainWindow):
         conn_dialog = ConnDialog(conn_info, ADD_CONN_MENU, self.geometry())
         conn_dialog.conn_signal.connect(lambda conn: add_conn_item(self, conn))
         conn_dialog.exec()
-
-    def get_saved_conns(self):
-        """获取所有已存储的连接，生成页面树结构第一层"""
-        conns = ConnSqlite().select_all()
-        self.tab_widget.reopen_flag = True
-        for conn in conns:
-            # conn属性：id name host port timeout
-            # 根节点，展示连接的列表，将连接信息写入隐藏列
-            item = add_conn_tree_item(self, conn)
-            # 查出当前连接有没有保存在打开项中
-            reopen_conn_item(self, item, parent_id=conn.id)
-        self.tab_widget.reopen_flag = False
-        # 按顺序排列tab
-        self.tab_widget.insert_tab_by_order()
 
     def get_tree_list(self):
         """获取树的子节点，双击触发，连接 -> service -> method，按顺序读取出来"""

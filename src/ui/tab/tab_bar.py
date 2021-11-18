@@ -88,6 +88,7 @@ class MyTabBar(QTabBar):
     def change_current_order(self, index):
         """修改is current值和item order"""
         current_widget = self.parent.widget(index)
+        # 在启动过程中，没有必要执行修改数据库中顺序的操作
         if current_widget and not self.parent.reopen_flag:
             OpenedItemSqlite().update_current(current_widget.property("tab_id"))
             # order信息保存

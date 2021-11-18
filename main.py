@@ -2,8 +2,8 @@
 import sys
 
 from PyQt5 import QtWidgets
-
-from ui.main_window import MainWindow
+from static import image_rc
+from src.ui.main_window import MainWindow
 _author_ = 'luwt'
 _date_ = '2021/10/31 17:49'
 
