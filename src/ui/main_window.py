@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QVBoxLayout, QToolBar
 
-from src.constant.conn_dialog_constant import ADD_CONN_MENU
+from src.constant.conn_dialog_constant import ADD_CONN_MENU, EDIT_CONN_MENU
 from src.function.db.conn_sqlite import Connection, ConnSqlite
 from src.ui.async_func.async_reopen_item import AsyncReopen
 from src.ui.dialog.conn.conn_dialog import ConnDialog
@@ -126,8 +126,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def add_conn(self):
         """打开添加连接窗口"""
         conn_info = Connection(*((None,) * len(Connection._fields)))
-        conn_dialog = ConnDialog(conn_info, ADD_CONN_MENU, self.geometry())
-        conn_dialog.conn_signal.connect(lambda conn: add_conn_item(self, conn))
+        conn_dialog = ConnDialog(conn_info, ADD_CONN_MENU, self.geometry(), self.tree_widget)
+        conn_dialog.exec()
+
+    def edit_conn(self, conn_info, tree_item):
+        """打开编辑连接窗口"""
+        conn_dialog = ConnDialog(conn_info, EDIT_CONN_MENU, self.geometry(), tree_item=tree_item)
         conn_dialog.exec()
 
     def get_tree_list(self):

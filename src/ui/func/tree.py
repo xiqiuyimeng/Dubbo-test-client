@@ -4,10 +4,12 @@ from abc import ABC, abstractmethod
 from PyQt5.QtGui import QIcon
 
 from src.constant.main_constant import CLOSE_CONN_MENU, OPEN_CONN_MENU, TEST_CONN_MENU, ADD_CONN_MENU, EDIT_CONN_MENU, \
-    DEL_CONN_MENU, OPEN_SERVICE_MENU, CLOSE_SERVICE_MENU
+    DEL_CONN_MENU, OPEN_SERVICE_MENU, CLOSE_SERVICE_MENU, EDIT_CONN_PROMPT
+from src.function.db.conn_sqlite import Connection
 from src.function.db.opened_item_sqlite import OpenedItemSqlite, OpenedItem
 from src.function.dubbo.dubbo_client import DubboClient
-from src.ui.box.message_box import pop_fail, pop_ok
+from src.ui.async_func.async_conn import SimpleTestConn
+from src.ui.box.message_box import pop_fail, pop_question
 from src.ui.func.common import exception_handler
 from src.ui.tab.tab_ui import TabUI
 from src.ui.tree_item.my_tree_item import MyTreeWidgetItem
@@ -16,12 +18,12 @@ _author_ = 'luwt'
 _date_ = '2021/11/3 22:36'
 
 
-def add_conn_item(window, conn):
+def add_conn_item(tree_widget, conn):
     """添加连接树节点"""
     # 保存连接节点到已打开项中，在隐藏列写入id，opened item 父id指向conn id
     opened_item = OpenedItem(None, None, None, None, False, False, conn.id, 0)
     saved_conn_id = OpenedItemSqlite().insert(opened_item)
-    add_conn_tree_item(window, conn, first_col_text=saved_conn_id)
+    add_conn_tree_item(tree_widget, conn, first_col_text=saved_conn_id)
 
 
 def add_conn_tree_item(tree_widget, conn, first_col_text=None):
@@ -130,7 +132,7 @@ class TreeNodeAbstract(ABC):
     def handle_menu_func(self, item, func, window): ...
 
 
-class TreeNodeConn(TreeNodeAbstract, ABC):
+class TreeNodeConn(TreeNodeAbstract):
 
     @exception_handler(pop_fail, "打开连接失败")
     def open_item(self, item: MyTreeWidgetItem, window):
@@ -187,7 +189,7 @@ class TreeNodeConn(TreeNodeAbstract, ABC):
             menu_names.append(CLOSE_CONN_MENU)
         else:
             menu_names.append(OPEN_CONN_MENU)
-            menu_names.append(TEST_CONN_MENU)
+        menu_names.append(TEST_CONN_MENU)
         menu_names.append(ADD_CONN_MENU)
         menu_names.append(EDIT_CONN_MENU)
         menu_names.append(DEL_CONN_MENU)
@@ -212,21 +214,17 @@ class TreeNodeConn(TreeNodeAbstract, ABC):
                 self.close_item(item, window)
         # 测试连接
         elif func == TEST_CONN_MENU:
-            self.test_conn(eval(item.text(1)), window=window)
+            conn_info = eval(item.text(2))
+            SimpleTestConn(*list(conn_info.values())[2:], item)
         # 添加连接
         elif func == ADD_CONN_MENU:
             window.add_conn()
         # 编辑连接
         elif func == EDIT_CONN_MENU:
-            self.edit_conn(func, window, conn_name, conn_id, item)
+            window.edit_conn(Connection(**eval(item.text(2))), item)
         # 删除连接
         elif func == DEL_CONN_MENU:
             self.del_conn(func, window, conn_name, conn_id, item)
-
-    @exception_handler(pop_fail, "测试连接失败")
-    def test_conn(self, conn_info, window):
-        DubboClient(conn_info.get("host"), conn_info.get("port"), conn_info.get("timeout")).test_connection()
-        pop_ok("测试连接成功", "测试连接", window)
 
     @staticmethod
     def close_conn(conn_name, func, window):
@@ -247,39 +245,22 @@ class TreeNodeConn(TreeNodeAbstract, ABC):
         close_connection(window, conn_name)
         return True
 
-    def edit_conn(self, func, window, conn_name, conn_id, item):
+    def edit_conn(self, window, item):
         """
         编辑连接，首先需要判断连接是否打开，
-        如果打开，进一步判断是否有选中的字段数据，如果有，
-        则弹窗提示需要先关闭连接并清空字段。
-        如果没有选中字段，则弹窗需要关闭连接。
+        如果打开，则弹窗需要关闭连接。
         否则直接弹编辑窗口
-        :param func: 功能名称
         :param window: 启动的主窗口界面对象
-        :param conn_name: 连接名称
-        :param conn_id: 连接id
         :param item: 当前点击树节点元素
         """
         # 先判断是否打开
-        if item.isExpanded():
-            # 再判断是否有选中字段
-            if SelectedData().get_db_dict(conn_name, True):
-                if pop_question(func, EDIT_CONN_WITH_FIELD_PROMPT):
-                    SelectedData().unset_conn(conn_name)
-                    # 关闭连接
-                    close_connection(window, conn_name)
-                    self.close_item(item, window)
-                else:
-                    return
+        if item.childCount() > 0:
+            if pop_question(EDIT_CONN_MENU, EDIT_CONN_PROMPT):
+                # 开始关闭连接
             else:
-                if pop_question(func, EDIT_CONN_PROMPT):
-                    # 关闭连接
-                    close_connection(window, conn_name)
-                    self.close_item(item, window)
-                else:
-                    return
-        conn_info = window.display_conn_dict.get(conn_id)
-        show_conn_dialog(window, conn_info, func, window.screen_rect)
+                return
+        window.edit_conn(Connection(**eval(item.text(2))), item)
+
 
     def del_conn(self, func, window, conn_name, conn_id, item):
         """
@@ -330,7 +311,7 @@ class TreeNodeConn(TreeNodeAbstract, ABC):
         return conn_id, conn_name
 
 
-class TreeNodeService(TreeNodeAbstract, ABC):
+class TreeNodeService(TreeNodeAbstract):
 
     @exception_handler(pop_fail, "打开连接失败")
     def open_item(self, item, window):
@@ -449,7 +430,7 @@ class TreeNodeService(TreeNodeAbstract, ABC):
         return conn_id, conn_name, db_name
 
 
-class TreeNodeMethod(TreeNodeAbstract, ABC):
+class TreeNodeMethod(TreeNodeAbstract):
 
     def open_item(self, item, window):
         """

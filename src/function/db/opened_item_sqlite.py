@@ -34,6 +34,7 @@ opened_item_sql = {
     'select_by_name': 'select * from opened_item where item_name = ?',
     'reset_current': 'update opened_item set is_current = 0 where is_current = 1',
     'set_current': 'update opened_item set is_current = 1 where item_name = ?',
+    'delete_by_parent': 'delete from opened_item where parent_id = ?',
 }
 
 
@@ -100,4 +101,9 @@ class OpenedItemSqlite(SqliteBasic):
     def delete_by_name(self, item_name):
         sql = opened_item_sql.get('delete_by_name')
         self.cursor.execute(sql, (item_name, ))
+        self.conn.commit()
+
+    def delete_by_parent(self, parent_id):
+        sql = opened_item_sql.get('delete_by_parent')
+        self.cursor.execute(sql, (parent_id,))
         self.conn.commit()

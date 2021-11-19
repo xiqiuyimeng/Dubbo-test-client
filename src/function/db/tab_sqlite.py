@@ -37,7 +37,8 @@ tab_sql = {
     'delete': 'delete from tab where id = ?',
     'select': 'select * from tab ',
     'select_insert_id': 'select id from tab order by id desc limit 1',
-    'select_by_tab_id': 'select * from tab where tab_id = ?'
+    'select_by_tab_id': 'select * from tab where tab_id = ?',
+    'delete_by_conn_id': 'delete from tab where conn_id = ?',
 }
 
 
@@ -64,3 +65,8 @@ class TabSqlite(SqliteBasic):
         self.cursor.execute(sql, (tab_id, ))
         data = self.cursor.fetchone()
         return TabObj(*data) if data else TabObj(*((None,) * len(TabObj._fields)))
+
+    def delete_by_conn_id(self, conn_id):
+        sql = tab_sql.get('select_by_tab_id')
+        self.cursor.execute(sql, (conn_id,))
+        self.conn.commit()

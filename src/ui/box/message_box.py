@@ -18,7 +18,7 @@ def pop_msg(title, msg):
     msg_box.exec()
 
 
-def pop_ok(msg, title, window):
+def pop_ok(msg, title, window=None):
     """
     弹出执行成功消息框
     :param msg: 弹窗消息
@@ -33,13 +33,14 @@ def pop_ok(msg, title, window):
     msg_box.exec()
 
 
-def pop_fail(msg, window=None):
+def pop_fail(msg, title, window=None):
     """
     弹出失败消息框
     :param msg: 弹窗消息
+    :param title: 标题
     :param window: 父窗体
     """
-    msg_box = QMessageBox(QMessageBox.Critical, "错误", msg, parent=window)
+    msg_box = QMessageBox(QMessageBox.Critical, title, msg, parent=window)
     msg_box.addButton(OK_BUTTON, QMessageBox.AcceptRole)
     msg_box.exec()
 

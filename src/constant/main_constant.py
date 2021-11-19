@@ -31,3 +31,8 @@ CLOSE_SERVICE_MENU = "关闭服务"
 OK_BUTTON = "确定"
 ACCEPT_BUTTON = "是"
 REJECT_BUTTON = "否"
+
+# 测试连接提示语
+SUCCESS_TEST_PROMPT = "测试dubbo连接成功"
+# 编辑连接提示语
+EDIT_CONN_PROMPT = '编辑连接需要先关闭连接，是否继续？'

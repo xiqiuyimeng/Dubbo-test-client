@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtCore import QCoreApplication, pyqtSignal
+from PyQt5.QtCore import QCoreApplication
 from PyQt5.QtWidgets import QDialog
 
 from src.constant.conn_dialog_constant import EDIT_CONN_MENU, ADD_CONN_MENU, SAVE_CONN_SUCCESS_PROMPT
 from src.function.db.conn_sqlite import ConnSqlite, Connection
-from src.ui.box.message_box import pop_ok
+from src.ui.async_func.async_conn import TestConn
+from src.ui.async_func.async_conn_db import AddConnDBWorker, EditConnDBWorker, AddConnDB, EditConnDB
 from src.ui.func.common import keep_center
-from src.ui.func.tree import TreeNodeConn
 
 _author_ = 'luwt'
 _date_ = '2021/10/31 21:42'
@@ -15,14 +15,14 @@ _date_ = '2021/10/31 21:42'
 
 class ConnDialog(QDialog):
 
-    conn_signal = pyqtSignal(Connection)
-
-    def __init__(self, connection, dialog_title, screen_rect):
+    def __init__(self, connection, dialog_title, screen_rect, tree_widget=None, tree_item=None):
         super().__init__()
         self.dialog_title = dialog_title
         self.connection = connection
         self._translate = QCoreApplication.translate
         self.main_screen_rect = screen_rect
+        self.tree_widget = tree_widget
+        self.tree_item = tree_item
         self.name_available = False
 
         self.setObjectName("conn_dialog")
@@ -98,6 +98,10 @@ class ConnDialog(QDialog):
         self.bind_action()
         self.translate_ui()
 
+        self.add_conn_worker: AddConnDBWorker = ...
+        self.edit_conn_worker: EditConnDBWorker = ...
+        self.add_edit_conn: AddEditConnDB = ...
+
     def setup_ui(self):
         # 当前窗口大小根据主窗口大小计算
         self.resize(self.main_screen_rect.width() * 0.3, self.main_screen_rect.height() * 0.3)
@@ -155,9 +159,10 @@ class ConnDialog(QDialog):
             self.host_value.setText(self._translate("Dialog", self.connection.host))
             port = str(self.connection.port) if self.connection.port else None
             self.port_value.setText(self._translate("Dialog", port))
-            self.timeout_value.setText(self._translate("Dialog", self.connection.timeout))
-            self.ok.setDisabled(False)
-            self.test_conn.setDisabled(False)
+            timeout = str(self.connection.timeout) if self.connection.timeout else '3000'
+            self.timeout_value.setText(self._translate("Dialog", timeout))
+            self.ok_btn.setDisabled(False)
+            self.test_conn_btn.setDisabled(False)
             self.name_available = True
 
     def check_name_available(self, conn_name):
@@ -190,25 +195,19 @@ class ConnDialog(QDialog):
 
     def test_connection(self):
         conn_info = self.get_input_connection()
-        TreeNodeConn().test_conn(dict(zip(conn_info._fields, conn_info)), window=self)
+        TestConn(self, conn_info)
 
     def get_input_connection(self):
         return Connection(self.connection.id, *self.get_input())
 
     def add_or_edit(self):
-        box_flag = False
         new_conn = self.get_input_connection()
         if self.dialog_title == EDIT_CONN_MENU:
             # 比较下是否有改动，如果有修改再更新库
             if set(new_conn[1:]) - set(self.connection[1:]):
-                ConnSqlite().update_selective(new_conn)
-                box_flag = True
+                self.add_edit_conn = EditConnDB(new_conn, self, self.dialog_title,
+                                                SAVE_CONN_SUCCESS_PROMPT, self.tree_item)
         elif self.dialog_title == ADD_CONN_MENU:
-            conn_id = ConnSqlite().insert(new_conn)
-            new_conn = Connection(conn_id, *new_conn[1:])
-            box_flag = True
-        if box_flag:
-            pop_ok(SAVE_CONN_SUCCESS_PROMPT, self.dialog_title, self)
-        self.close()
-        self.conn_signal.emit(new_conn)
+            self.add_edit_conn = AddConnDB(new_conn, self, self.dialog_title,
+                                           SAVE_CONN_SUCCESS_PROMPT, self.tree_widget)
 

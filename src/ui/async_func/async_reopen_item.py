@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+"""
+在重新启动软件过程中，实现异步读取数据机制，但是由于sqlite3不支持多线程下的操作，所以在读取tab数据时，
+并没有用异步的形式，实际考虑，应该不会有太大影响，其余打开树结构的数据均采用异步形式
+"""
 from PyQt5.QtCore import QThread, pyqtSignal, QObject
 from PyQt5.QtGui import QMovie, QIcon
 
@@ -20,7 +24,7 @@ class ReopenWorker(QThread):
     # 后续返回 OpenedItem list
     opened_items_result = pyqtSignal(list)
     # 错误信号
-    error_signal = pyqtSignal(Exception)
+    error_signal = pyqtSignal(str)
     # 结束信号
     finish_signal = pyqtSignal()
 
@@ -34,14 +38,12 @@ class ReopenWorker(QThread):
             # 首先查询连接列表
             conns = ConnSqlite().select_all()
             self.conns_result.emit(conns)
-            1/0
             # 查询 OpenedItem
             for conn in conns:
                 # 从OpenedItem中查询连接，正常来说，一定可以查到，并且应该只有一条数据
                 self.recursive_get_children(0, conn.id)
         except Exception as e:
-            print(e)
-            self.error_signal.emit(e)
+            self.error_signal.emit(str(e))
         finally:
             # 任务结束发射结束信号
             self.finish_signal.emit()
@@ -78,13 +80,10 @@ class AsyncReopen(QObject):
         # 自定义线程工作对象
         self.worker = ReopenWorker(self.window, self.tree_widget)
         # 接收线程信号
-        self.worker.conns_result.connect(lambda conns: self.make_connections(conns))
-        self.worker.opened_items_result.connect(lambda opened_items: self.make_opened_items(opened_items))
-        self.worker.error_signal.connect(lambda e: self.handle_error(e))
-        self.worker.finish_signal.connect(lambda: self.finish_reopen())
-
-    def handle_error(self, exception):
-        pop_fail(exception.args[0], self.window)
+        self.worker.conns_result.connect(self.make_connections)
+        self.worker.opened_items_result.connect(self.make_opened_items)
+        self.worker.error_signal.connect(lambda e: pop_fail(e, self.window))
+        self.worker.finish_signal.connect(self.finish_reopen)
 
     def reopen_item_start(self):
         self.tab_widget.reopen_flag = True
