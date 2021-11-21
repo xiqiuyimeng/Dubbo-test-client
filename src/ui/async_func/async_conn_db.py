@@ -115,12 +115,12 @@ class ConnDBABC(QObject):
     def post_process(self, opened_conn_id, conn): ...
 
 
-class AddConnDB(ConnDBABC):
+class AsyncAddConnDB(ConnDBABC):
 
-    def __init__(self, conn_info: Connection, window, title, prompt, tree_widget):
+    def __init__(self, conn_info: Connection, tree_widget, *args):
         self.conn_info = conn_info
         self.tree_widget = tree_widget
-        super().__init__(window, title, prompt)
+        super().__init__(*args)
 
     def get_worker(self) -> ConnDBWorker:
         return AddConnDBWorker(self.conn_info)
@@ -130,12 +130,12 @@ class AddConnDB(ConnDBABC):
         add_conn_tree_item(self.tree_widget, conn_info, opened_conn_id)
 
 
-class EditConnDB(ConnDBABC):
+class AsyncEditConnDB(ConnDBABC):
 
-    def __init__(self, conn_info: Connection, window, title, prompt, tree_item):
+    def __init__(self, conn_info: Connection, tree_item, *args):
         self.conn_info = conn_info
         self.tree_item = tree_item
-        super().__init__(window, title, prompt)
+        super().__init__(*args)
 
     def get_worker(self) -> ConnDBWorker:
         return EditConnDBWorker(self.conn_info)

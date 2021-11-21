@@ -7,8 +7,7 @@ from src.constant.main_constant import CLOSE_CONN_MENU, OPEN_CONN_MENU, TEST_CON
     DEL_CONN_MENU, OPEN_SERVICE_MENU, CLOSE_SERVICE_MENU, EDIT_CONN_PROMPT
 from src.function.db.conn_sqlite import Connection
 from src.function.db.opened_item_sqlite import OpenedItemSqlite, OpenedItem
-from src.function.dubbo.dubbo_client import DubboClient
-from src.ui.async_func.async_conn import SimpleTestConn
+from src.ui.async_func.async_conn import AsyncSimpleTestConn, AsyncOpenConn, AsyncOpenService, AsyncOpenMethod
 from src.ui.box.message_box import pop_fail, pop_question
 from src.ui.func.common import exception_handler
 from src.ui.tab.tab_ui import TabUI
@@ -66,6 +65,41 @@ def make_tree_item(parent, text, icon, checkbox=None, first_col_text=None, secon
     return item
 
 
+def make_service_items(result, item):
+    if result:
+        for service, saved_service_id in result:
+            make_tree_item(item, service, QIcon(":/icon/mysql_conn_icon.png"),
+                           first_col_text=saved_service_id)
+        item.setExpanded(True)
+
+
+def make_method_items(result, item):
+    if result:
+        for method_dict, saved_method_id in result:
+            method_name = method_dict.get("method_name")
+            # 将方法详细信息写入隐藏列
+            make_tree_item(item, method_name, QIcon(":/icon/mysql_conn_icon.png"),
+                           first_col_text=saved_method_id, second_col_text=method_dict)
+        item.setExpanded(True)
+
+
+def make_method_tab(item_order, item, tab_widget, tab_id):
+    if item_order >= 0:
+        tab_widget.setCurrentIndex(item_order)
+    else:
+        method_name = item.text(0)
+        service_path = item.parent().text(0)
+        method_dict = eval(item.text(2))
+        conn_dict = eval(item.parent().parent().text(2))
+        tab_ui = TabUI(tab_widget,
+                       method_name,
+                       service_path,
+                       method_dict,
+                       conn_dict,
+                       tab_id)
+        tab_ui.set_up_tab()
+
+
 def tree_node_factory(item):
     """
     获取树节点对应的实例化对象。
@@ -85,6 +119,14 @@ def tree_node_factory(item):
         return TreeNodeService()
     elif item.parent().parent().parent() is None:
         return TreeNodeMethod()
+
+
+def get_conn_info(text):
+    conn_info = eval(text)
+    host = conn_info.get("host")
+    port = conn_info.get("port")
+    timeout = conn_info.get("timeout")
+    return host, port, timeout
 
 
 class Context:
@@ -144,19 +186,10 @@ class TreeNodeConn(TreeNodeAbstract):
         # 仅当子元素不存在时，获取子元素并填充
         if item.childCount() == 0:
             # 连接的id，连接名称
-            conn_info = eval(item.text(2))
-            client = DubboClient(conn_info.get("host"), conn_info.get("port"), conn_info.get("timeout"))
-            service_list = client.get_service_list()
+            conn_info = get_conn_info(item.text(2))
             # 在opened item中保存的连接id
             saved_conn_id = item.text(1)
-            for service in service_list:
-                # 保存子节点信息
-                saved_service_item = OpenedItem(None, service, None, None, False, False, saved_conn_id, 1)
-                saved_service_id = OpenedItemSqlite().insert(saved_service_item)
-                make_tree_item(item, service, QIcon(":/icon/mysql_conn_icon.png"),
-                               first_col_text=saved_service_id)
-            # 更新当前节点的expanded状态
-            OpenedItemSqlite().update_expanded(saved_conn_id, True)
+            AsyncOpenConn(conn_info, saved_conn_id, make_service_items, item, window).start()
 
     def reopen_item(self, item, children_data, item_dict, expanded=None, tab_widget=None):
         """重新打开连接下的服务列表，展开已保存的服务列表"""
@@ -215,7 +248,7 @@ class TreeNodeConn(TreeNodeAbstract):
         # 测试连接
         elif func == TEST_CONN_MENU:
             conn_info = eval(item.text(2))
-            SimpleTestConn(*list(conn_info.values())[2:], item)
+            AsyncSimpleTestConn(item, list(conn_info.values()), window).start()
         # 添加连接
         elif func == ADD_CONN_MENU:
             window.add_conn()
@@ -255,7 +288,7 @@ class TreeNodeConn(TreeNodeAbstract):
         """
         # 先判断是否打开
         if item.childCount() > 0:
-            if pop_question(EDIT_CONN_MENU, EDIT_CONN_PROMPT):
+            if pop_question(EDIT_CONN_MENU, EDIT_CONN_PROMPT):...
                 # 开始关闭连接
             else:
                 return
@@ -323,19 +356,8 @@ class TreeNodeService(TreeNodeAbstract):
         # 仅当子元素不存在时，获取子元素并填充
         if item.childCount() == 0:
             # 获取连接id和名称
-            conn_info = eval(item.parent().text(2))
-            client = DubboClient(conn_info.get("host"), conn_info.get("port"), conn_info.get("timeout"))
-            method_list = client.get_method_list(item.text(0))
-            for method_dict in method_list:
-                method_name = method_dict.get("method_name")
-                # 保存子节点信息
-                saved_method_item = OpenedItem(None, method_name, str(method_dict), None, False, False, item.text(1), 2)
-                saved_method_id = OpenedItemSqlite().insert(saved_method_item)
-                # 将方法详细信息写入隐藏列
-                make_tree_item(item, method_name, QIcon(":/icon/mysql_conn_icon.png"),
-                               first_col_text=saved_method_id, second_col_text=method_dict)
-            # 更新service节点expanded
-            OpenedItemSqlite().update_expanded(item.text(1), True)
+            conn_info = get_conn_info(item.parent().text(2))
+            AsyncOpenService(conn_info, item.text(0), item.text(1), make_method_items, item, window).start()
 
     def reopen_item(self, item, children_data, item_dict, expanded=None, tab_widget=None):
         """重新打开service节点，获取下一级保存的数据"""
@@ -440,27 +462,10 @@ class TreeNodeMethod(TreeNodeAbstract):
         """
         conn_dict = eval(item.parent().parent().text(2))
         service_path = item.parent().text(0)
-        method_dict = eval(item.text(2))
         method_name = item.text(0)
         # 首先构造tab的id：conn_id + service + method_name
         tab_id = f'{conn_dict.get("id")}-{service_path}-{method_name}'
-        # 从库中读取 opened item
-        opened_tab_info = OpenedItemSqlite().select_by_name(tab_id)
-        # 如果当前方法已经打开过了，那么就将它的tab页置顶，如果没有打开过，那么再打开
-        if opened_tab_info:
-            window.tab_widget.setCurrentIndex(opened_tab_info.item_order)
-        else:
-            tab_ui = TabUI(window.tab_widget,
-                           method_name,
-                           service_path,
-                           method_dict,
-                           conn_dict,
-                           tab_id)
-            tab_ui.set_up_tab()
-            # 存库
-            tab_item = OpenedItem(None, tab_id, None, window.tab_widget.indexOf(tab_ui.tab),
-                                  True, False, item.text(1), 3)
-            OpenedItemSqlite().add_tab(tab_item)
+        AsyncOpenMethod(item, window, tab_id, window.tab_widget.count(), item.text(1), make_method_tab).start()
 
     def reopen_item(self, item, children_data, item_dict, expanded=None, tab_widget=None):
         opened_tab = children_data[0]

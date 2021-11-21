@@ -27,6 +27,9 @@ DEL_CONN_MENU = '删除连接'
 OPEN_SERVICE_MENU = "打开服务"
 CLOSE_SERVICE_MENU = "关闭服务"
 
+"""关于方法的右键菜单"""
+OPEN_METHOD_MENU = "打开方法详情"
+
 # 按钮文案
 OK_BUTTON = "确定"
 ACCEPT_BUTTON = "是"

@@ -5,8 +5,8 @@ from PyQt5.QtWidgets import QDialog
 
 from src.constant.conn_dialog_constant import EDIT_CONN_MENU, ADD_CONN_MENU, SAVE_CONN_SUCCESS_PROMPT
 from src.function.db.conn_sqlite import ConnSqlite, Connection
-from src.ui.async_func.async_conn import TestConn
-from src.ui.async_func.async_conn_db import AddConnDBWorker, EditConnDBWorker, AddConnDB, EditConnDB
+from src.ui.async_func.async_conn import AsyncTestConn
+from src.ui.async_func.async_conn_db import AddConnDBWorker, EditConnDBWorker, AsyncAddConnDB, AsyncEditConnDB
 from src.ui.func.common import keep_center
 
 _author_ = 'luwt'
@@ -195,7 +195,7 @@ class ConnDialog(QDialog):
 
     def test_connection(self):
         conn_info = self.get_input_connection()
-        TestConn(self, conn_info)
+        AsyncTestConn(self, conn_info).start()
 
     def get_input_connection(self):
         return Connection(self.connection.id, *self.get_input())
@@ -205,9 +205,9 @@ class ConnDialog(QDialog):
         if self.dialog_title == EDIT_CONN_MENU:
             # 比较下是否有改动，如果有修改再更新库
             if set(new_conn[1:]) - set(self.connection[1:]):
-                self.add_edit_conn = EditConnDB(new_conn, self, self.dialog_title,
-                                                SAVE_CONN_SUCCESS_PROMPT, self.tree_item)
+                self.add_edit_conn = AsyncEditConnDB(new_conn, self.tree_item, self, self.dialog_title,
+                                                     SAVE_CONN_SUCCESS_PROMPT)
         elif self.dialog_title == ADD_CONN_MENU:
-            self.add_edit_conn = AddConnDB(new_conn, self, self.dialog_title,
-                                           SAVE_CONN_SUCCESS_PROMPT, self.tree_widget)
+            self.add_edit_conn = AsyncAddConnDB(new_conn, self.tree_widget, self, self.dialog_title,
+                                                SAVE_CONN_SUCCESS_PROMPT)
 
