@@ -78,6 +78,7 @@ class ThreadWorkManagerABC(QObject):
 
     def fail(self, error_msg):
         self.post_process()
+        self.fail_post_process()
         pop_fail(error_msg, self.error_box_title, self.window)
 
     def pre_process(self): ...
@@ -88,16 +89,19 @@ class ThreadWorkManagerABC(QObject):
 
     def success_post_process(self, *args): ...
 
+    def fail_post_process(self): ...
+
 
 class LoadingMaskThreadWorkManager(ThreadWorkManagerABC):
 
-    def __init__(self, *args):
+    def __init__(self, masked_widget, *args):
         self.movie = QMovie(":/gif/loading.gif")
+        self.masked_widget = masked_widget
         self.loading_mask: LoadingMask = ...
         super().__init__(*args)
 
     def pre_process(self):
-        self.loading_mask = LoadingMask(self.window, self.movie)
+        self.loading_mask = LoadingMask(self.masked_widget, self.movie)
         self.loading_mask.show()
 
     def post_process(self):

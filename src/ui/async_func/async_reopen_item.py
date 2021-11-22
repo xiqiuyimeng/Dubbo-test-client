@@ -103,7 +103,7 @@ class AsyncReopenManager(IconMovieThreadWorkManager):
         item_value = self.opened_item_dict.get(opened_items[0].parent_id)
         node = tree_node_factory(item_value[0])
         Context(node).reopen_item(item_value[0], opened_items, self.opened_item_dict,
-                                  item_value[1], self.tab_widget)
+                                  item_value[1], self.window)
 
     def success_post_process(self, *args):
         # 按顺序排列tab

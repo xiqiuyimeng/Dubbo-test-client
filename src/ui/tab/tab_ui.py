@@ -8,10 +8,9 @@ from PyQt5.QtWidgets import QPlainTextEdit, QTextBrowser, QLabel, QTabWidget, QW
 from src.constant.tab_constant import SEND_BUTTON, SENDING_BUTTON, ARGS_TAB_TITLE, JSON_TAB_TITLE, \
     RESULT_DISPLAY, REQUEST_TIME, RESPONSE_TIME, COST_TIME, REQUEST_FAIL, RESULT_DISPLAY_RAW, RESULT_DISPLAY_JSON
 from src.function.db.tab_sqlite import TabSqlite, TabObj
-from src.function.dubbo.dubbo_client import DubboClient
-from src.ui.box.message_box import pop_fail
-from src.ui.func.common import exception_handler, set_up_label
-from src.ui.tab.tab_widget import ParamTabWidget, MyTabWidget
+from src.ui.async_func.async_tab import AsyncSendRequestManager
+from src.ui.func.common import set_up_label
+from src.ui.tab.tab_widget import ParamTabWidget
 from src.ui.table.table_widget import ParamTableWidget
 
 _author_ = 'luwt'
@@ -22,7 +21,7 @@ class TabUI:
 
     def __init__(
             self,
-            parent: MyTabWidget,
+            window,
             title: str,
             service_path: str,
             method_dict: dict,
@@ -31,7 +30,7 @@ class TabUI:
     ):
         """
         tab页
-        :param parent: 父tabWidget
+        :param window: 主窗口
         :param title: tab页的标题
         :param service_path: 服务路径，为了在下面去拼接完整方法名，调用
         :param method_dict: 方法详情的字典 {
@@ -50,7 +49,8 @@ class TabUI:
                                     }
         :param tab_id: tab id, conn_id + service + method_name
         """
-        self.parent = parent
+        self.window = window
+        self.parent = window.tab_widget
         self.title = title
         self.service_path = service_path
         self.method_dict = method_dict
@@ -285,7 +285,6 @@ class TabUI:
             else:
                 return self.json_edit_area.toPlainText().strip()
 
-    @exception_handler(pop_fail, REQUEST_FAIL)
     def send_func(self):
         """发送请求"""
         # 点击发送后，首先将按钮置为不可用，文案显示：发送中
@@ -293,24 +292,30 @@ class TabUI:
         self.request_time_label.setText(f"请求时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         # 清空结果区
         self.result_browser.clear()
-        try:
-            dubbo_client = DubboClient(self.conn_dict.get("host"),
-                                       self.conn_dict.get("port"),
-                                       self.conn_dict.get("timeout"))
-            method = self.method_dict.get("method_name")
-            request_param = self.get_param()
-            if request_param:
-                invoke_method = f'{self.service_path}.{method}({request_param})'
-            else:
-                invoke_method = f'{self.service_path}.{method}()'
-            method_result = dubbo_client.invoke(invoke_method)
-            self.response_time_label.setText(f"响应时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            self.parse_result(method_result)
-        finally:
-            # 恢复发送按钮
-            self.enable_send_button()
-            # 保存结果信息
-            self.save_result()
+        method = self.method_dict.get("method_name")
+        request_param = self.get_param()
+        if request_param:
+            invoke_method = f'{self.service_path}.{method}({request_param})'
+        else:
+            invoke_method = f'{self.service_path}.{method}()'
+        # 异步发送请求
+        AsyncSendRequestManager(self.request_fail, self.request_success, self.result_browser, self.window,
+                                REQUEST_FAIL, invoke_method, *list(self.conn_dict.values())[2:]).start()
+
+    def request_success(self, result):
+        self.parse_result(result)
+        self.response_time_label.setText(f"响应时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        # 恢复发送按钮
+        self.enable_send_button()
+        # 保存结果信息
+        self.save_result()
+
+    def request_fail(self):
+        self.response_time_label.setText("响应时间：")
+        # 恢复发送按钮
+        self.enable_send_button()
+        # 保存结果信息
+        self.save_result()
 
     def disable_send_button(self):
         # 设置按钮不可用
@@ -330,15 +335,13 @@ class TabUI:
             time_count = result_list[2].lstrip('elapsed: ').rstrip('.')
             self.result_count_label.setText(f'接口耗时：{time_count}')
             self.rpc_result = result_list[1].lstrip('result: ')
-            self.display_result_browser()
         elif len(result_list) == 2:
             # 如果分割完只有两个元素，第二个为异常语句
-            error_msg = result_list[1]
-            raise ConnectionError(error_msg)
+            self.rpc_result = result_list[1]
         elif len(result_list) == 1:
             # 如果只有一个元素，应该是服务返回的错误，应该展示到结果区
             self.rpc_result = result_list[0]
-            self.display_result_browser()
+        self.display_result_browser()
 
     def combo_box_change_func(self):
         # 保存combo box状态

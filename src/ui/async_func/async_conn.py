@@ -113,7 +113,7 @@ class AsyncTestConnManager(LoadingMaskThreadWorkManager):
 
     def __init__(self, window, conn_info: Connection):
         self.conn_info = conn_info
-        super().__init__(window, TEST_CONN_MENU)
+        super().__init__(window, window, TEST_CONN_MENU)
 
     def get_worker(self):
         return TestConnWorker(*self.conn_info[2:])
@@ -169,9 +169,9 @@ class AsyncOpenServiceManager(AsyncOpenItemChildrenManager):
 
 class AsyncOpenMethodManager(IconMovieThreadWorkManager):
 
-    def __init__(self, item, window, tab_id, order, method_id, callback):
+    def __init__(self, item, window, tab_id, method_id, callback):
         self.tab_id = tab_id
-        self.order = order
+        self.order = window.tab_widget.count()
         self.method_id = method_id
         self.callback = callback
         super().__init__(item, window, OPEN_METHOD_MENU)
@@ -180,5 +180,5 @@ class AsyncOpenMethodManager(IconMovieThreadWorkManager):
         return OpenMethodWorker(self.tab_id, self.order, self.method_id)
 
     def success_post_process(self, *args):
-        self.callback(*args, self.item, self.window.tab_widget, self.tab_id)
+        self.callback(*args, self.item, self.window, self.tab_id)
 

@@ -151,7 +151,7 @@ class CheckNameConnDBWorker(ThreadWorkerABC):
 class ConnDBABCManager(LoadingMaskThreadWorkManager):
 
     def __init__(self, window, title, prompt):
-        super().__init__(window, title)
+        super().__init__(window, window, title)
         self.prompt = prompt
 
     def post_process(self):

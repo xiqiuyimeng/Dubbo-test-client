@@ -115,7 +115,7 @@ class TreeNodeAbstract(ABC):
     def open_item_ui(self, *args): ...
 
     @abstractmethod
-    def reopen_item(self, item, children_data, item_dict, expanded=None, tab_widget=None): ...
+    def reopen_item(self, item, children_data, item_dict, expanded=None, window=None): ...
 
     @abstractmethod
     def close_item(self, item, window): ...
@@ -150,7 +150,7 @@ class TreeNodeConn(TreeNodeAbstract):
                                first_col_text=saved_service_id)
             item.setExpanded(True)
 
-    def reopen_item(self, item, children_data, item_dict, expanded=None, tab_widget=None):
+    def reopen_item(self, item, children_data, item_dict, expanded=None, window=None):
         """重新打开连接下的服务列表，展开已保存的服务列表"""
         for child_service in children_data:
             service_item = make_tree_item(item, child_service.item_name, QIcon(":/icon/mysql_conn_icon.png"),
@@ -280,7 +280,7 @@ class TreeNodeService(TreeNodeAbstract):
                                first_col_text=saved_method_id, second_col_text=method_dict)
             item.setExpanded(True)
 
-    def reopen_item(self, item, children_data, item_dict, expanded=None, tab_widget=None):
+    def reopen_item(self, item, children_data, item_dict, expanded=None, window=None):
         """重新打开service节点，获取下一级保存的数据"""
         for child_method in children_data:
             method_item = make_tree_item(item, child_method.item_name, QIcon(":/icon/mysql_conn_icon.png"),
@@ -337,17 +337,17 @@ class TreeNodeMethod(TreeNodeAbstract):
         method_name = item.text(0)
         # 首先构造tab的id：conn_id + service + method_name
         tab_id = f'{conn_dict.get("id")}-{service_path}-{method_name}'
-        AsyncOpenMethodManager(item, window, tab_id, window.tab_widget.count(), item.text(1), self.open_item_ui).start()
+        AsyncOpenMethodManager(item, window, tab_id, item.text(1), self.open_item_ui).start()
 
-    def open_item_ui(self, item_order, item, tab_widget, tab_id):
+    def open_item_ui(self, item_order, item, window, tab_id):
         if item_order >= 0:
-            tab_widget.setCurrentIndex(item_order)
+            window.tab_widget.setCurrentIndex(item_order)
         else:
             method_name = item.text(0)
             service_path = item.parent().text(0)
             method_dict = eval(item.text(2))
             conn_dict = eval(item.parent().parent().text(2))
-            tab_ui = TabUI(tab_widget,
+            tab_ui = TabUI(window,
                            method_name,
                            service_path,
                            method_dict,
@@ -355,13 +355,13 @@ class TreeNodeMethod(TreeNodeAbstract):
                            tab_id)
             tab_ui.set_up_tab()
 
-    def reopen_item(self, item, children_data, item_dict, expanded=None, tab_widget=None):
+    def reopen_item(self, item, children_data, item_dict, expanded=None, window=None):
         opened_tab = children_data[0]
         conn_dict = eval(item.parent().parent().text(2))
         method_dict = eval(item.text(2))
         service_path = item.parent().text(0)
         method_name = item.text(0)
-        tab_ui = TabUI(tab_widget,
+        tab_ui = TabUI(window,
                        method_name,
                        service_path,
                        method_dict,
@@ -370,7 +370,7 @@ class TreeNodeMethod(TreeNodeAbstract):
         # 直接按order insert插入不可取，应该先添加后排序
         tab_ui.set_up_tab(opened_tab.item_order)
         if opened_tab.is_current:
-            tab_widget.current = opened_tab.item_order
+            window.tab_widget.current = opened_tab.item_order
 
     def close_item(self, item, window):
         """

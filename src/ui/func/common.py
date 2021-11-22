@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from functools import wraps
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QLabel
@@ -20,22 +19,6 @@ def keep_center(window, screen_rect):
     center_top = (screen_rect.height() - window_rect.height()) >> 1
     # 为了保证在参照物的中心，需要跟随当前参照物的位置移动
     window.move(center_left + screen_rect.x(), center_top + screen_rect.y())
-
-
-def exception_handler(callback_f, *callback_args):
-    """
-    捕获异常，并按照callback_f来处理异常
-    """
-    def wrap(f):
-        @wraps(f)
-        def handler(*args, **kwargs):
-            try:
-                return f(*args, **kwargs)
-            except Exception as e:
-                # kwargs，取出window
-                callback_f(f'{callback_args[0]}\n{e}', kwargs.get("window"))
-        return handler
-    return wrap
 
 
 def set_up_label(parent: QWidget, text: str, obj_name: str):
