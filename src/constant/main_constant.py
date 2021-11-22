@@ -3,6 +3,9 @@ _author_ = 'luwt'
 _date_ = '2021/11/1 00:43'
 
 
+# 重新打开项目
+REOPEN_PROJECT_TITLE = "重新打开项目"
+
 """菜单栏"""
 FILE_MENU = '文件'
 HELP_MENU = '帮助'

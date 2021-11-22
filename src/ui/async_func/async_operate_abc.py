@@ -2,15 +2,41 @@
 """
 定义打开线程操作管理基类，方便子类使用
 """
-from PyQt5.QtCore import QObject, QThread
+from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from PyQt5.QtGui import QMovie, QIcon
+from PyQt5.QtWidgets import QTreeWidgetItem
 
 from src.ui.box.message_box import pop_fail
 from src.ui.loading_mask.loading_widget import LoadingMask
-from src.ui.tree_item.my_tree_item import MyTreeWidgetItem
 
 _author_ = 'luwt'
 _date_ = '2021/11/21 15:44'
+
+
+# ----------------------- thread worker ABC -----------------------
+
+
+class ThreadWorkerABC(QThread):
+
+    error_signal = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+
+    def run(self):
+        try:
+            self.do_run()
+        except Exception as e:
+            self.error_signal.emit(str(e))
+        finally:
+            self.do_finally()
+
+    def do_run(self): ...
+
+    def do_finally(self): ...
+
+
+# ----------------------- thread worker manager ABC -----------------------
 
 
 class ThreadWorkABC(QObject):
@@ -63,7 +89,7 @@ class LoadingMaskType(ThreadWorkABC):
 
 class IconMovieType(ThreadWorkABC):
 
-    def __init__(self, item: MyTreeWidgetItem, *args):
+    def __init__(self, item: QTreeWidgetItem, *args):
         self.item = item
         self.movie = QMovie(":/gif/loading_simple.gif")
         self.icon = self.item.icon(0)

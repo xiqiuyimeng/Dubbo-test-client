@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import pyqtSignal
 
 from src.constant.main_constant import TEST_CONN_MENU, OPEN_CONN_MENU, OPEN_SERVICE_MENU, \
     OPEN_METHOD_MENU, SUCCESS_TEST_PROMPT
 from src.function.db.conn_sqlite import Connection
 from src.function.db.opened_item_sqlite import OpenedItem, OpenedItemSqlite
 from src.function.dubbo.dubbo_client import DubboClient
-from src.ui.async_func.async_operate_abc import LoadingMaskType, IconMovieType
+from src.ui.async_func.async_operate_abc import LoadingMaskType, IconMovieType, ThreadWorkerABC
 from src.ui.box.message_box import pop_ok
 
 _author_ = 'luwt'
@@ -16,10 +16,7 @@ _date_ = '2021/11/16 11:23'
 # ----------------------- thread worker -----------------------
 
 
-class ConnWorker(QThread):
-
-    error_signal = pyqtSignal(str)
-    success_signal: pyqtSignal = ...
+class ConnWorker(ThreadWorkerABC):
 
     def __init__(self, host, port, timeout):
         super().__init__()
@@ -28,14 +25,11 @@ class ConnWorker(QThread):
         self.timeout = timeout
         self.client: DubboClient = ...
 
-    def run(self):
-        try:
-            self.client = DubboClient(self.host, self.port, self.timeout)
-            self.do_run()
-        except Exception as e:
-            self.error_signal.emit(str(e))
+    def do_run(self):
+        self.client = DubboClient(self.host, self.port, self.timeout)
+        self.do_work()
 
-    def do_run(self): ...
+    def do_work(self): ...
 
 
 class TestConnWorker(ConnWorker):
@@ -45,12 +39,12 @@ class TestConnWorker(ConnWorker):
     def __init__(self, *args):
         super().__init__(*args)
 
-    def do_run(self):
+    def do_work(self):
         self.client.test_connection()
         self.success_signal.emit()
 
 
-class OpenItemChildren(ConnWorker):
+class OpenItemChildrenWorker(ConnWorker):
 
     success_signal = pyqtSignal(list)
 
@@ -59,7 +53,7 @@ class OpenItemChildren(ConnWorker):
         self.saved_id = saved_id
         self.result = list()
 
-    def do_run(self):
+    def do_work(self):
         data = self.get_data()
         if data:
             self.deal_data(data)
@@ -72,7 +66,7 @@ class OpenItemChildren(ConnWorker):
     def deal_data(self, data): ...
 
 
-class OpenConnWorker(OpenItemChildren):
+class OpenConnWorker(OpenItemChildrenWorker):
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -88,7 +82,7 @@ class OpenConnWorker(OpenItemChildren):
             self.result.append((service, saved_service_id))
 
 
-class OpenServiceWorker(OpenItemChildren):
+class OpenServiceWorker(OpenItemChildrenWorker):
 
     def __init__(self, service_name, *args):
         super().__init__(*args)
@@ -106,9 +100,8 @@ class OpenServiceWorker(OpenItemChildren):
             self.result.append((method_dict, saved_method_id))
             
             
-class OpenMethodWorker(QThread):
+class OpenMethodWorker(ThreadWorkerABC):
     
-    error_signal = pyqtSignal(str)
     success_signal = pyqtSignal(int)
     
     def __init__(self, tab_id, order, method_id):
@@ -117,21 +110,19 @@ class OpenMethodWorker(QThread):
         self.order = order
         self.method_id = method_id
         
-    def run(self):
-        try:
-            # 从库中读取 opened item
-            opened_tab_info = OpenedItemSqlite().select_by_name(self.tab_id)
-            if opened_tab_info:
-                self.success_signal.emit(opened_tab_info.item_order)
-            else:
-                # 存库
-                tab_item = OpenedItem(None, self.tab_id, None, self.order, True, False, self.method_id, 3)
-                OpenedItemSqlite().add_tab(tab_item)
-                self.success_signal.emit(-1)
-        except Exception as e:
-            self.error_signal.emit(str(e))
+    def do_run(self):
+        # 从库中读取 opened item
+        opened_tab_info = OpenedItemSqlite().select_by_name(self.tab_id)
+        if opened_tab_info:
+            self.success_signal.emit(opened_tab_info.item_order)
+        else:
+            # 存库
+            tab_item = OpenedItem(None, self.tab_id, None, self.order, True, False, self.method_id, 3)
+            OpenedItemSqlite().add_tab(tab_item)
+            self.success_signal.emit(-1)
 
-# ----------------------- thread worker 管理 -----------------------
+
+# ----------------------- thread worker manager -----------------------
 # ----------------------- 测试连接相关 -----------------------
 
 
@@ -202,7 +193,7 @@ class AsyncOpenMethod(IconMovieType):
         self.callback = callback
         super().__init__(item, window, OPEN_METHOD_MENU)
 
-    def get_worker(self) -> QThread:
+    def get_worker(self):
         return OpenMethodWorker(self.tab_id, self.order, self.method_id)
 
     def success_post_process(self, *args):

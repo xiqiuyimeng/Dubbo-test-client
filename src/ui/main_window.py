@@ -107,7 +107,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def bind_action(self):
         # 异步重新打开上次退出时的工作状态
-        AsyncReopen(self, self.tree_widget, self.tab_widget).reopen_item_start()
+        AsyncReopen(self, self.tree_widget, self.tab_widget).start()
         # 双击树节点事件
         self.tree_widget.doubleClicked.connect(self.get_tree_list)
         # 点击、展开、收起节点，都需要让列根据内容自适应，从而可以保证水平滚动条

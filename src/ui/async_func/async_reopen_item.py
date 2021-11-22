@@ -3,12 +3,12 @@
 在重新启动软件过程中，实现异步读取数据机制，但是由于sqlite3不支持多线程下的操作，所以在读取tab数据时，
 并没有用异步的形式，实际考虑，应该不会有太大影响，其余打开树结构的数据均采用异步形式
 """
-from PyQt5.QtCore import QThread, pyqtSignal, QObject
-from PyQt5.QtGui import QMovie, QIcon
+from PyQt5.QtCore import pyqtSignal
 
+from src.constant.main_constant import REOPEN_PROJECT_TITLE
 from src.function.db.conn_sqlite import ConnSqlite
 from src.function.db.opened_item_sqlite import OpenedItemSqlite
-from src.ui.box.message_box import pop_fail
+from src.ui.async_func.async_operate_abc import ThreadWorkerABC, IconMovieType
 from src.ui.func.tree import add_conn_tree_item, tree_node_factory, Context
 from src.ui.scrollable_widget.scrollable_widget import MyTreeWidget
 from src.ui.tab.tab_widget import MyTabWidget
@@ -17,36 +17,32 @@ _author_ = 'luwt'
 _date_ = '2021/11/16 11:12'
 
 
-class ReopenWorker(QThread):
+class ReopenWorker(ThreadWorkerABC):
 
     # 定义重新打开结果信号，第一次应该返回 Connection list
     conns_result = pyqtSignal(list)
     # 后续返回 OpenedItem list
     opened_items_result = pyqtSignal(list)
-    # 错误信号
-    error_signal = pyqtSignal(str)
     # 结束信号
-    finish_signal = pyqtSignal()
+    success_signal = pyqtSignal()
 
     def __init__(self, window, tree_widget):
         super().__init__()
         self.window = window
         self.tree_widget = tree_widget
 
-    def run(self):
-        try:
-            # 首先查询连接列表
-            conns = ConnSqlite().select_all()
-            self.conns_result.emit(conns)
-            # 查询 OpenedItem
-            for conn in conns:
-                # 从OpenedItem中查询连接，正常来说，一定可以查到，并且应该只有一条数据
-                self.recursive_get_children(0, conn.id)
-        except Exception as e:
-            self.error_signal.emit(str(e))
-        finally:
-            # 任务结束发射结束信号
-            self.finish_signal.emit()
+    def do_run(self):
+        # 首先查询连接列表
+        conns = ConnSqlite().select_all()
+        self.conns_result.emit(conns)
+        # 查询 OpenedItem
+        for conn in conns:
+            # 从OpenedItem中查询连接，正常来说，一定可以查到，并且应该只有一条数据
+            self.recursive_get_children(0, conn.id)
+
+    def do_finally(self):
+        # 任务结束发射结束信号
+        self.success_signal.emit()
 
     def recursive_get_children(self, level, parent_id):
         if level <= 3:
@@ -61,36 +57,24 @@ class ReopenWorker(QThread):
             return opened_items
 
 
-class AsyncReopen(QObject):
+class AsyncReopen(IconMovieType):
 
     def __init__(self, window, tree_widget: MyTreeWidget, tab_widget: MyTabWidget):
-        super().__init__()
-        self.window = window
         self.tree_widget = tree_widget
+        super().__init__(tree_widget.headerItem(), window, REOPEN_PROJECT_TITLE)
         self.tab_widget = tab_widget
-        self._movie = QMovie(":/gif/loading_simple.gif")
-        self.header_item = self.tree_widget.headerItem()
-        self.icon = self.header_item.icon(0)
+        self.tab_widget.reopen_flag = True
 
         # 临时变量，key为conn id，value为conn item
         self.conn_item_dict = dict()
         # 打开项的临时变量，key为opened item id，value为(item, expanded)
         self.opened_item_dict = dict()
-
-        # 自定义线程工作对象
-        self.worker = ReopenWorker(self.window, self.tree_widget)
         # 接收线程信号
         self.worker.conns_result.connect(self.make_connections)
         self.worker.opened_items_result.connect(self.make_opened_items)
-        self.worker.error_signal.connect(lambda e: pop_fail(e, self.window))
-        self.worker.finish_signal.connect(self.finish_reopen)
 
-    def reopen_item_start(self):
-        self.tab_widget.reopen_flag = True
-        self._movie.start()
-        self._movie.frameChanged.connect(lambda: self.header_item.setIcon(0, QIcon(self._movie.currentPixmap())))
-        # 开启线程
-        self.worker.start()
+    def get_worker(self):
+        return ReopenWorker(self.window, self.tree_widget)
 
     def make_connections(self, conns):
         # 构建连接层
@@ -121,12 +105,10 @@ class AsyncReopen(QObject):
         Context(node).reopen_item(item_value[0], opened_items, self.opened_item_dict,
                                   item_value[1], self.tab_widget)
 
-    def finish_reopen(self):
+    def success_post_process(self, *args):
         # 按顺序排列tab
         self.tab_widget.insert_tab_by_order()
         self.tab_widget.reopen_flag = False
-        self._movie.stop()
-        self.header_item.setIcon(0, self.icon)
         # 删除临时变量
         del self.conn_item_dict
         del self.opened_item_dict
