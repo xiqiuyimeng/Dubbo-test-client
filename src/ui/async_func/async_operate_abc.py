@@ -6,6 +6,7 @@ from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from PyQt5.QtGui import QMovie, QIcon
 from PyQt5.QtWidgets import QTreeWidgetItem
 
+from src.function.dubbo.dubbo_client import DubboClient
 from src.ui.box.message_box import pop_fail
 from src.ui.loading_mask.loading_widget import LoadingMask
 
@@ -36,10 +37,26 @@ class ThreadWorkerABC(QThread):
     def do_finally(self): ...
 
 
+class ConnWorker(ThreadWorkerABC):
+
+    def __init__(self, host, port, timeout):
+        super().__init__()
+        self.host = host
+        self.port = port
+        self.timeout = timeout
+        self.client: DubboClient = ...
+
+    def do_run(self):
+        self.client = DubboClient(self.host, self.port, self.timeout)
+        self.do_work()
+
+    def do_work(self): ...
+
+
 # ----------------------- thread worker manager ABC -----------------------
 
 
-class ThreadWorkABC(QObject):
+class ThreadWorkManagerABC(QObject):
 
     def __init__(self, window, error_box_title):
         super().__init__()
@@ -72,7 +89,7 @@ class ThreadWorkABC(QObject):
     def success_post_process(self, *args): ...
 
 
-class LoadingMaskType(ThreadWorkABC):
+class LoadingMaskThreadWorkManager(ThreadWorkManagerABC):
 
     def __init__(self, *args):
         self.movie = QMovie(":/gif/loading.gif")
@@ -87,7 +104,7 @@ class LoadingMaskType(ThreadWorkABC):
         self.loading_mask.close()
 
 
-class IconMovieType(ThreadWorkABC):
+class IconMovieThreadWorkManager(ThreadWorkManagerABC):
 
     def __init__(self, item: QTreeWidgetItem, *args):
         self.item = item

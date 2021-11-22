@@ -6,7 +6,7 @@ from PyQt5.QtCore import pyqtSignal
 from src.function.db.conn_sqlite import ConnSqlite, Connection
 from src.function.db.opened_item_sqlite import OpenedItem, OpenedItemSqlite
 from src.function.db.tab_sqlite import TabSqlite
-from src.ui.async_func.async_operate_abc import LoadingMaskType, IconMovieType, ThreadWorkABC, ThreadWorkerABC
+from src.ui.async_func.async_operate_abc import LoadingMaskThreadWorkManager, IconMovieThreadWorkManager, ThreadWorkManagerABC, ThreadWorkerABC
 from src.ui.box.message_box import pop_ok
 
 _author_ = 'luwt'
@@ -148,7 +148,7 @@ class CheckNameConnDBWorker(ThreadWorkerABC):
 # ----------------------- thread worker manager -----------------------
 
 
-class ConnDBABC(LoadingMaskType):
+class ConnDBABCManager(LoadingMaskThreadWorkManager):
 
     def __init__(self, window, title, prompt):
         super().__init__(window, title)
@@ -160,7 +160,7 @@ class ConnDBABC(LoadingMaskType):
         self.window.close()
 
 
-class AsyncAddConnDB(ConnDBABC):
+class AsyncAddConnDBManager(ConnDBABCManager):
 
     def __init__(self, conn_info: Connection, tree_widget, callback, *args):
         self.conn_info = conn_info
@@ -175,7 +175,7 @@ class AsyncAddConnDB(ConnDBABC):
         self.callback(self.tree_widget, conn_info, opened_conn_id)
 
 
-class AsyncEditConnDB(ConnDBABC):
+class AsyncEditConnDBManager(ConnDBABCManager):
 
     def __init__(self, conn_info: Connection, tree_item, *args):
         self.conn_info = conn_info
@@ -192,7 +192,7 @@ class AsyncEditConnDB(ConnDBABC):
 
 # ----------------------- 关闭相关 -----------------------
 
-class AsyncCloseConnDB(IconMovieType):
+class AsyncCloseConnDBManager(IconMovieThreadWorkManager):
 
     def __init__(self, parent_id, level, callback, *args):
         self.parent_id = parent_id
@@ -207,7 +207,7 @@ class AsyncCloseConnDB(IconMovieType):
         self.callback(*args, self.item, self.window.tab_widget)
 
 
-class AsyncDelConnDB(IconMovieType):
+class AsyncDelConnDBManager(IconMovieThreadWorkManager):
 
     def __init__(self, conn_id, callback, tree_widget, *args):
         self.conn_id = conn_id
@@ -222,7 +222,7 @@ class AsyncDelConnDB(IconMovieType):
         self.callback(self.item, self.tree_widget)
 
 
-class AsyncCloseDelConnDB(IconMovieType):
+class AsyncCloseDelConnDBManager(IconMovieThreadWorkManager):
 
     def __init__(self, conn_id, callback, *args):
         self.conn_id = conn_id
@@ -236,7 +236,7 @@ class AsyncCloseDelConnDB(IconMovieType):
         self.callback(self.item, self.window.tab_widget, self.window.tree_widget, *args)
 
 
-class AsyncCheckNameConnDB(ThreadWorkABC):
+class AsyncCheckNameConnDBManager(ThreadWorkManagerABC):
 
     def __init__(self, conn_id, callback, *args):
         self.conn_id = conn_id

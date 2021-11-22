@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QVBoxLayout, QToolBar
 
 from src.constant.conn_dialog_constant import ADD_CONN_MENU, EDIT_CONN_MENU
 from src.function.db.conn_sqlite import Connection
-from src.ui.async_func.async_reopen_item import AsyncReopen
+from src.ui.async_func.async_reopen_item import AsyncReopenManager
 from src.ui.dialog.conn.conn_dialog import ConnDialog
 from src.ui.func.common import keep_center, close_sqlite
 from src.ui.func.menu_bar import fill_menu_bar
@@ -107,7 +107,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def bind_action(self):
         # 异步重新打开上次退出时的工作状态
-        AsyncReopen(self, self.tree_widget, self.tab_widget).start()
+        AsyncReopenManager(self, self.tree_widget, self.tab_widget).start()
         # 双击树节点事件
         self.tree_widget.doubleClicked.connect(self.get_tree_list)
         # 点击、展开、收起节点，都需要让列根据内容自适应，从而可以保证水平滚动条

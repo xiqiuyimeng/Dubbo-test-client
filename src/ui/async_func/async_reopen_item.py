@@ -8,7 +8,7 @@ from PyQt5.QtCore import pyqtSignal
 from src.constant.main_constant import REOPEN_PROJECT_TITLE
 from src.function.db.conn_sqlite import ConnSqlite
 from src.function.db.opened_item_sqlite import OpenedItemSqlite
-from src.ui.async_func.async_operate_abc import ThreadWorkerABC, IconMovieType
+from src.ui.async_func.async_operate_abc import ThreadWorkerABC, IconMovieThreadWorkManager
 from src.ui.func.tree import add_conn_tree_item, tree_node_factory, Context
 from src.ui.scrollable_widget.scrollable_widget import MyTreeWidget
 from src.ui.tab.tab_widget import MyTabWidget
@@ -57,7 +57,7 @@ class ReopenWorker(ThreadWorkerABC):
             return opened_items
 
 
-class AsyncReopen(IconMovieType):
+class AsyncReopenManager(IconMovieThreadWorkManager):
 
     def __init__(self, window, tree_widget: MyTreeWidget, tab_widget: MyTabWidget):
         self.tree_widget = tree_widget

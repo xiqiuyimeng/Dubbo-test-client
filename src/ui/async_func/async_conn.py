@@ -5,8 +5,7 @@ from src.constant.main_constant import TEST_CONN_MENU, OPEN_CONN_MENU, OPEN_SERV
     OPEN_METHOD_MENU, SUCCESS_TEST_PROMPT
 from src.function.db.conn_sqlite import Connection
 from src.function.db.opened_item_sqlite import OpenedItem, OpenedItemSqlite
-from src.function.dubbo.dubbo_client import DubboClient
-from src.ui.async_func.async_operate_abc import LoadingMaskType, IconMovieType, ThreadWorkerABC
+from src.ui.async_func.async_operate_abc import LoadingMaskThreadWorkManager, IconMovieThreadWorkManager, ThreadWorkerABC, ConnWorker
 from src.ui.box.message_box import pop_ok
 
 _author_ = 'luwt'
@@ -14,22 +13,6 @@ _date_ = '2021/11/16 11:23'
 
 
 # ----------------------- thread worker -----------------------
-
-
-class ConnWorker(ThreadWorkerABC):
-
-    def __init__(self, host, port, timeout):
-        super().__init__()
-        self.host = host
-        self.port = port
-        self.timeout = timeout
-        self.client: DubboClient = ...
-
-    def do_run(self):
-        self.client = DubboClient(self.host, self.port, self.timeout)
-        self.do_work()
-
-    def do_work(self): ...
 
 
 class TestConnWorker(ConnWorker):
@@ -126,7 +109,7 @@ class OpenMethodWorker(ThreadWorkerABC):
 # ----------------------- 测试连接相关 -----------------------
 
 
-class AsyncTestConn(LoadingMaskType):
+class AsyncTestConnManager(LoadingMaskThreadWorkManager):
 
     def __init__(self, window, conn_info: Connection):
         self.conn_info = conn_info
@@ -139,7 +122,7 @@ class AsyncTestConn(LoadingMaskType):
         pop_ok(SUCCESS_TEST_PROMPT, self.error_box_title, self.window)
 
 
-class AsyncSimpleTestConn(IconMovieType):
+class AsyncSimpleTestConnManager(IconMovieThreadWorkManager):
 
     def __init__(self, item, conn_info, window):
         self.conn_info = conn_info
@@ -152,7 +135,7 @@ class AsyncSimpleTestConn(IconMovieType):
 # ----------------------- 打开相关 -----------------------
 
 
-class AsyncOpenItemChildren(IconMovieType):
+class AsyncOpenItemChildrenManager(IconMovieThreadWorkManager):
 
     def __init__(self, saved_id, callback, item, *args):
         self.saved_id = saved_id
@@ -163,7 +146,7 @@ class AsyncOpenItemChildren(IconMovieType):
         self.callback(*args, self.item)
 
 
-class AsyncOpenConn(AsyncOpenItemChildren):
+class AsyncOpenConnManager(AsyncOpenItemChildrenManager):
 
     def __init__(self, conn_info, *args):
         self.conn_info = conn_info
@@ -173,7 +156,7 @@ class AsyncOpenConn(AsyncOpenItemChildren):
         return OpenConnWorker(self.saved_id, *self.conn_info)
 
 
-class AsyncOpenService(AsyncOpenItemChildren):
+class AsyncOpenServiceManager(AsyncOpenItemChildrenManager):
 
     def __init__(self, conn_info, service_name, *args):
         self.conn_info = conn_info
@@ -184,7 +167,7 @@ class AsyncOpenService(AsyncOpenItemChildren):
         return OpenServiceWorker(self.service_name, self.saved_id, *self.conn_info)
 
 
-class AsyncOpenMethod(IconMovieType):
+class AsyncOpenMethodManager(IconMovieThreadWorkManager):
 
     def __init__(self, item, window, tab_id, order, method_id, callback):
         self.tab_id = tab_id

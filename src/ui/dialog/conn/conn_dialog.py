@@ -6,9 +6,9 @@ from PyQt5.QtWidgets import QDialog
 
 from src.constant.conn_dialog_constant import EDIT_CONN_MENU, ADD_CONN_MENU, SAVE_CONN_SUCCESS_PROMPT
 from src.function.db.conn_sqlite import Connection
-from src.ui.async_func.async_conn import AsyncTestConn
-from src.ui.async_func.async_conn_db import AsyncAddConnDB, AsyncEditConnDB, \
-    AsyncCheckNameConnDB
+from src.ui.async_func.async_conn import AsyncTestConnManager
+from src.ui.async_func.async_conn_db import AsyncAddConnDBManager, AsyncEditConnDBManager, \
+    AsyncCheckNameConnDBManager
 from src.ui.func.common import keep_center
 from src.ui.func.tree import add_conn_tree_item
 
@@ -101,10 +101,10 @@ class ConnDialog(QDialog):
         self.bind_action()
         self.translate_ui()
 
-        self.add_conn_worker: AsyncAddConnDB = ...
-        self.edit_conn_worker: AsyncEditConnDB = ...
-        self.async_check_name = AsyncCheckNameConnDB(self.connection.id,
-                                                     self.check_name_available, self, self.dialog_title)
+        self.add_conn_worker: AsyncAddConnDBManager = ...
+        self.edit_conn_worker: AsyncEditConnDBManager = ...
+        self.async_check_name = AsyncCheckNameConnDBManager(self.connection.id,
+                                                            self.check_name_available, self, self.dialog_title)
         self.async_check_name.start()
 
     def setup_ui(self):
@@ -212,7 +212,7 @@ class ConnDialog(QDialog):
 
     def test_connection(self):
         conn_info = self.get_input_connection()
-        AsyncTestConn(self, conn_info).start()
+        AsyncTestConnManager(self, conn_info).start()
 
     def get_input_connection(self):
         return Connection(self.connection.id, *self.get_input())
@@ -222,11 +222,11 @@ class ConnDialog(QDialog):
         if self.dialog_title == EDIT_CONN_MENU:
             # 比较下是否有改动，如果有修改再更新库
             if set(new_conn[1:]) - set(self.connection[1:]):
-                self.edit_conn_worker = AsyncEditConnDB(new_conn, self.tree_item, self, self.dialog_title,
-                                                        SAVE_CONN_SUCCESS_PROMPT).start()
+                self.edit_conn_worker = AsyncEditConnDBManager(new_conn, self.tree_item, self, self.dialog_title,
+                                                               SAVE_CONN_SUCCESS_PROMPT).start()
         elif self.dialog_title == ADD_CONN_MENU:
-            self.add_conn_worker = AsyncAddConnDB(new_conn, self.tree_widget, add_conn_tree_item, self,
-                                                  self.dialog_title, SAVE_CONN_SUCCESS_PROMPT).start()
+            self.add_conn_worker = AsyncAddConnDBManager(new_conn, self.tree_widget, add_conn_tree_item, self,
+                                                         self.dialog_title, SAVE_CONN_SUCCESS_PROMPT).start()
 
     def close(self):
         self.async_check_name.quit()

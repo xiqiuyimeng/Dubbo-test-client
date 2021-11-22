@@ -7,8 +7,8 @@ from src.constant.main_constant import CLOSE_CONN_MENU, OPEN_CONN_MENU, TEST_CON
     DEL_CONN_MENU, OPEN_SERVICE_MENU, CLOSE_SERVICE_MENU, EDIT_CONN_PROMPT, CLOSE_METHOD_MENU, OPEN_METHOD_MENU, \
     DEL_CONN_PROMPT
 from src.function.db.conn_sqlite import Connection
-from src.ui.async_func.async_conn import AsyncSimpleTestConn, AsyncOpenConn, AsyncOpenService, AsyncOpenMethod
-from src.ui.async_func.async_conn_db import AsyncCloseConnDB, AsyncDelConnDB, AsyncCloseDelConnDB
+from src.ui.async_func.async_conn import AsyncSimpleTestConnManager, AsyncOpenConnManager, AsyncOpenServiceManager, AsyncOpenMethodManager
+from src.ui.async_func.async_conn_db import AsyncCloseConnDBManager, AsyncDelConnDBManager, AsyncCloseDelConnDBManager
 from src.ui.box.message_box import pop_question
 from src.ui.tab.tab_ui import TabUI
 from src.ui.tree_item.my_tree_item import MyTreeWidgetItem
@@ -141,7 +141,7 @@ class TreeNodeConn(TreeNodeAbstract):
             conn_info = get_conn_info(item.text(2))
             # 在opened item中保存的连接id
             saved_conn_id = item.text(1)
-            AsyncOpenConn(conn_info, saved_conn_id, self.open_item_ui, item, window).start()
+            AsyncOpenConnManager(conn_info, saved_conn_id, self.open_item_ui, item, window).start()
 
     def open_item_ui(self, result, item):
         if result:
@@ -165,7 +165,7 @@ class TreeNodeConn(TreeNodeAbstract):
         :param item: 当前点击树节点元素
         :param window: 启动的主窗口界面对象
         """
-        AsyncCloseConnDB(item.text(1), 1, close_item_ui, item, window, CLOSE_CONN_MENU).start()
+        AsyncCloseConnDBManager(item.text(1), 1, close_item_ui, item, window, CLOSE_CONN_MENU).start()
 
     def get_menu_names(self, item, window):
         """
@@ -202,7 +202,7 @@ class TreeNodeConn(TreeNodeAbstract):
         # 测试连接
         elif func == TEST_CONN_MENU:
             conn_info = eval(item.text(2))
-            AsyncSimpleTestConn(item, list(conn_info.values()), window).start()
+            AsyncSimpleTestConnManager(item, list(conn_info.values()), window).start()
         # 添加连接
         elif func == ADD_CONN_MENU:
             window.add_conn()
@@ -241,9 +241,9 @@ class TreeNodeConn(TreeNodeAbstract):
         if item.childCount() > 0:
             if pop_question(DEL_CONN_MENU, DEL_CONN_PROMPT):
                 # 开始关闭并删除连接
-                AsyncCloseDelConnDB(conn_id, self.close_del_conn_item, item, window, DEL_CONN_MENU).start()
+                AsyncCloseDelConnDBManager(conn_id, self.close_del_conn_item, item, window, DEL_CONN_MENU).start()
         else:
-            AsyncDelConnDB(conn_id, self.del_conn_item, window.tree_widget, item, window, DEL_CONN_MENU).start()
+            AsyncDelConnDBManager(conn_id, self.del_conn_item, window.tree_widget, item, window, DEL_CONN_MENU).start()
 
     def del_conn_item(self, item, tree_widget):
         tree_widget.takeTopLevelItem(tree_widget.indexOfTopLevelItem(item))
@@ -269,7 +269,7 @@ class TreeNodeService(TreeNodeAbstract):
         if item.childCount() == 0:
             # 获取连接id和名称
             conn_info = get_conn_info(item.parent().text(2))
-            AsyncOpenService(conn_info, item.text(0), item.text(1), self.open_item_ui, item, window).start()
+            AsyncOpenServiceManager(conn_info, item.text(0), item.text(1), self.open_item_ui, item, window).start()
 
     def open_item_ui(self, result, item):
         if result:
@@ -294,7 +294,7 @@ class TreeNodeService(TreeNodeAbstract):
         :param item: 当前点击树节点元素
         :param window: 启动的主窗口界面对象
         """
-        AsyncCloseConnDB(item.text(1), 2, close_item_ui, item, window, CLOSE_SERVICE_MENU).start()
+        AsyncCloseConnDBManager(item.text(1), 2, close_item_ui, item, window, CLOSE_SERVICE_MENU).start()
 
     def get_menu_names(self, item, window):
         """
@@ -337,7 +337,7 @@ class TreeNodeMethod(TreeNodeAbstract):
         method_name = item.text(0)
         # 首先构造tab的id：conn_id + service + method_name
         tab_id = f'{conn_dict.get("id")}-{service_path}-{method_name}'
-        AsyncOpenMethod(item, window, tab_id, window.tab_widget.count(), item.text(1), self.open_item_ui).start()
+        AsyncOpenMethodManager(item, window, tab_id, window.tab_widget.count(), item.text(1), self.open_item_ui).start()
 
     def open_item_ui(self, item_order, item, tab_widget, tab_id):
         if item_order >= 0:
@@ -378,7 +378,7 @@ class TreeNodeMethod(TreeNodeAbstract):
         :param item: 当前点击树节点元素
         :param window: 启动的主窗口界面对象
         """
-        AsyncCloseConnDB(item.text(1), 3, self.close_item_ui, item, window, CLOSE_METHOD_MENU).start()
+        AsyncCloseConnDBManager(item.text(1), 3, self.close_item_ui, item, window, CLOSE_METHOD_MENU).start()
 
     def close_item_ui(self, tab_order, item, tab_widget):
         if tab_order:
