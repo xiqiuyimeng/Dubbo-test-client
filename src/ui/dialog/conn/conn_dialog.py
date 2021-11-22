@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtCore import QCoreApplication
+from PyQt5.QtCore import QCoreApplication, Qt
+from PyQt5.QtGui import QFontMetrics
 from PyQt5.QtWidgets import QDialog
 
 from src.constant.conn_dialog_constant import EDIT_CONN_MENU, ADD_CONN_MENU, SAVE_CONN_SUCCESS_PROMPT
-from src.function.db.conn_sqlite import ConnSqlite, Connection
+from src.function.db.conn_sqlite import Connection
 from src.ui.async_func.async_conn import AsyncTestConn
-from src.ui.async_func.async_conn_db import AddConnDBWorker, EditConnDBWorker, AsyncAddConnDB, AsyncEditConnDB
+from src.ui.async_func.async_conn_db import AsyncAddConnDB, AsyncEditConnDB, \
+    AsyncCheckNameConnDB
 from src.ui.func.common import keep_center
 from src.ui.func.tree import add_conn_tree_item
 
@@ -101,6 +103,9 @@ class ConnDialog(QDialog):
 
         self.add_conn_worker: AsyncAddConnDB = ...
         self.edit_conn_worker: AsyncEditConnDB = ...
+        self.async_check_name = AsyncCheckNameConnDB(self.connection.id,
+                                                     self.check_name_available, self, self.dialog_title)
+        self.async_check_name.start()
 
     def setup_ui(self):
         # 当前窗口大小根据主窗口大小计算
@@ -119,12 +124,13 @@ class ConnDialog(QDialog):
         self.port_value.setValidator(QtGui.QIntValidator())
         # 设置最多可输入字符数
         self.conn_name_value.setMaxLength(50)
-        self.host_value.setMaxLength(20)
+        self.host_value.setMaxLength(100)
         self.timeout_value.setMaxLength(20)
 
     def bind_action(self):
         # 输入框事件绑定
-        self.conn_name_value.textEdited.connect(self.check_name_available)
+        self.conn_name_value.textEdited.connect(lambda conn_name:
+                                                self.async_check_name.check_name_available(conn_name))
         self.conn_name_value.textEdited.connect(self.check_input)
         self.host_value.textEdited.connect(self.check_input)
         self.port_value.textEdited.connect(self.check_input)
@@ -165,15 +171,26 @@ class ConnDialog(QDialog):
             self.test_conn_btn.setDisabled(False)
             self.name_available = True
 
-    def check_name_available(self, conn_name):
-        name_available = ConnSqlite().check_name_available(self.connection.id, conn_name)
-        if name_available:
-            self.name_check_prompt.setText("连接名称可用")
-            self.name_check_prompt.setStyleSheet("color:green")
+    def check_name_available(self, name_available, conn_name):
+        if conn_name:
+            if name_available:
+                prompt = f"连接名称 {conn_name} 可用"
+                self.name_check_prompt.setText(self.get_elided_text_by_width(prompt))
+                self.name_check_prompt.setStyleSheet("color:green")
+            else:
+                prompt = f"连接名称 {conn_name} 不可用"
+                self.name_check_prompt.setText(self.get_elided_text_by_width(prompt))
+                self.name_check_prompt.setStyleSheet("color:red")
+            self.name_available = name_available
         else:
-            self.name_check_prompt.setText("连接名称不可用")
-            self.name_check_prompt.setStyleSheet("color:red")
-        self.name_available = name_available
+            self.name_check_prompt.clear()
+
+    def get_elided_text_by_width(self, prompt):
+        """根据label的长度，将文本自动缩减，并以省略号形式展示，当前省略模式为中间的文本缩减，替换为省略号"""
+        font_width = QFontMetrics(self.name_check_prompt.font())
+        if font_width.width(prompt) > self.name_check_prompt.width():
+            prompt = font_width.elidedText(prompt, Qt.ElideMiddle, self.name_check_prompt.width())
+        return prompt
 
     def check_input(self):
         # 检查是否都有值
@@ -210,4 +227,8 @@ class ConnDialog(QDialog):
         elif self.dialog_title == ADD_CONN_MENU:
             self.add_conn_worker = AsyncAddConnDB(new_conn, self.tree_widget, add_conn_tree_item, self,
                                                   self.dialog_title, SAVE_CONN_SUCCESS_PROMPT).start()
+
+    def close(self):
+        self.async_check_name.quit()
+        super().close()
 

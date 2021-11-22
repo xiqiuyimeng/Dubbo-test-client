@@ -17,7 +17,7 @@ conn_sql = {
     'create': '''create table if not exists connection
     (id integer PRIMARY KEY autoincrement,
     name char(50) not null,
-    host char(20) not null,
+    host char(100) not null,
     port int not null,
     timeout int not null
     );''',

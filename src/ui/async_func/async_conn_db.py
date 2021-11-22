@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
+from queue import Queue
+
 from PyQt5.QtCore import QThread, pyqtSignal
 
 from src.function.db.conn_sqlite import ConnSqlite, Connection
 from src.function.db.opened_item_sqlite import OpenedItem, OpenedItemSqlite
 from src.function.db.tab_sqlite import TabSqlite
-from src.ui.async_func.async_operate_abc import LoadingMaskType, IconMovieType
+from src.ui.async_func.async_operate_abc import LoadingMaskType, IconMovieType, ThreadWorkABC
 from src.ui.box.message_box import pop_ok
 
 _author_ = 'luwt'
@@ -136,6 +138,31 @@ class CloseDelConnDBWorker(DelWorkerABC):
         self.success_signal.emit(tab_orders if tab_orders else list())
 
 
+class CheckNameConnDBWorker(QThread):
+
+    error_signal = pyqtSignal(str)
+    success_signal = pyqtSignal(bool, str)
+
+    def __init__(self, conn_id, queue):
+        super().__init__()
+        self.conn_id = conn_id
+        self.queue = queue
+
+    def run(self):
+        try:
+            while True:
+                stop_flag, conn_name = self.queue.get()
+                if stop_flag:
+                    break
+                if conn_name:
+                    name_available = ConnSqlite().check_name_available(self.conn_id, conn_name)
+                    self.success_signal.emit(name_available, conn_name)
+                else:
+                    self.success_signal.emit(True, None)
+        except Exception as e:
+            self.error_signal.emit(str(e))
+
+
 # ----------------------- thread worker 管理 -----------------------
 
 
@@ -225,3 +252,25 @@ class AsyncCloseDelConnDB(IconMovieType):
 
     def success_post_process(self, *args):
         self.callback(self.item, self.window.tab_widget, self.window.tree_widget, *args)
+
+
+class AsyncCheckNameConnDB(ThreadWorkABC):
+
+    def __init__(self, conn_id, callback, *args):
+        self.conn_id = conn_id
+        self.callback = callback
+        self.queue = Queue()
+        self.worker_ = CheckNameConnDBWorker(self.conn_id, self.queue)
+        super().__init__(*args)
+
+    def get_worker(self):
+        return self.worker_
+
+    def check_name_available(self, conn_name):
+        self.queue.put((False, conn_name))
+
+    def success_post_process(self, *args):
+        self.callback(*args)
+
+    def quit(self):
+        self.queue.put((True, None))
