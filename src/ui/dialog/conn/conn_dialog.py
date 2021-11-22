@@ -8,6 +8,7 @@ from src.function.db.conn_sqlite import ConnSqlite, Connection
 from src.ui.async_func.async_conn import AsyncTestConn
 from src.ui.async_func.async_conn_db import AddConnDBWorker, EditConnDBWorker, AsyncAddConnDB, AsyncEditConnDB
 from src.ui.func.common import keep_center
+from src.ui.func.tree import add_conn_tree_item
 
 _author_ = 'luwt'
 _date_ = '2021/10/31 21:42'
@@ -98,9 +99,8 @@ class ConnDialog(QDialog):
         self.bind_action()
         self.translate_ui()
 
-        self.add_conn_worker: AddConnDBWorker = ...
-        self.edit_conn_worker: EditConnDBWorker = ...
-        self.add_edit_conn: AddEditConnDB = ...
+        self.add_conn_worker: AsyncAddConnDB = ...
+        self.edit_conn_worker: AsyncEditConnDB = ...
 
     def setup_ui(self):
         # 当前窗口大小根据主窗口大小计算
@@ -205,9 +205,9 @@ class ConnDialog(QDialog):
         if self.dialog_title == EDIT_CONN_MENU:
             # 比较下是否有改动，如果有修改再更新库
             if set(new_conn[1:]) - set(self.connection[1:]):
-                self.add_edit_conn = AsyncEditConnDB(new_conn, self.tree_item, self, self.dialog_title,
-                                                     SAVE_CONN_SUCCESS_PROMPT)
+                self.edit_conn_worker = AsyncEditConnDB(new_conn, self.tree_item, self, self.dialog_title,
+                                                        SAVE_CONN_SUCCESS_PROMPT).start()
         elif self.dialog_title == ADD_CONN_MENU:
-            self.add_edit_conn = AsyncAddConnDB(new_conn, self.tree_widget, self, self.dialog_title,
-                                                SAVE_CONN_SUCCESS_PROMPT)
+            self.add_conn_worker = AsyncAddConnDB(new_conn, self.tree_widget, add_conn_tree_item, self,
+                                                  self.dialog_title, SAVE_CONN_SUCCESS_PROMPT).start()
 

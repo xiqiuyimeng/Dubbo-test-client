@@ -5,13 +5,13 @@ from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QVBoxLayout, QToolBar
 
 from src.constant.conn_dialog_constant import ADD_CONN_MENU, EDIT_CONN_MENU
-from src.function.db.conn_sqlite import Connection, ConnSqlite
+from src.function.db.conn_sqlite import Connection
 from src.ui.async_func.async_reopen_item import AsyncReopen
 from src.ui.dialog.conn.conn_dialog import ConnDialog
-from src.ui.func.common import keep_center
+from src.ui.func.common import keep_center, close_sqlite
 from src.ui.func.menu_bar import fill_menu_bar
 from src.ui.func.tool_bar import fill_tool_bar
-from src.ui.func.tree import tree_node_factory, Context, add_conn_item, reopen_conn_item, add_conn_tree_item
+from src.ui.func.tree import tree_node_factory, Context
 from src.ui.scrollable_widget.scrollable_widget import MyTreeWidget
 from src.ui.tab.tab_bar import MyTabBar
 from src.ui.tab.tab_widget import MyTabWidget
@@ -46,8 +46,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_widget = MyTreeWidget(self.central_widget)
         self.tree_widget.setObjectName("tree_widget")
         self.tree_widget.headerItem().setText(0, "连接列表")
-        self.tree_widget.headerItem().setText(1, "隐藏列1")
-        self.tree_widget.headerItem().setText(2, "隐藏列2")
         self.tree_layout.addWidget(self.tree_widget)
         # 右边tab区frame
         self.tab_frame = QtWidgets.QFrame(self.central_widget)
@@ -158,4 +156,6 @@ class MainWindow(QtWidgets.QMainWindow):
             # 右键菜单弹出位置跟随焦点位置
             menu.exec_(QCursor.pos())
 
-
+    def close(self):
+        close_sqlite()
+        super().close()

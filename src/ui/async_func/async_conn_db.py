@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
-from PyQt5.QtCore import QThread, pyqtSignal, QObject
+from PyQt5.QtCore import QThread, pyqtSignal
 
-from src.constant.conn_dialog_constant import SAVE_CONN_SUCCESS_PROMPT, ADD_CONN_MENU, EDIT_CONN_MENU
 from src.function.db.conn_sqlite import ConnSqlite, Connection
 from src.function.db.opened_item_sqlite import OpenedItem, OpenedItemSqlite
 from src.function.db.tab_sqlite import TabSqlite
-from src.ui.box.message_box import pop_fail, pop_ok
-from src.ui.func.tree import add_conn_tree_item
+from src.ui.async_func.async_operate_abc import LoadingMaskType, IconMovieType
+from src.ui.box.message_box import pop_ok
 
 _author_ = 'luwt'
 _date_ = '2021/11/18 17:16'
@@ -47,7 +46,6 @@ class AddConnDBWorker(ConnDBWorker):
     def do_run(self):
         conn_id = ConnSqlite().insert(self.conn_info)
         self.conn_info = Connection(conn_id, *self.conn_info[1:])
-        self.sync_opened_item()
 
     def sync_opened_item(self):
         opened_item = OpenedItem(None, None, None, None, False, False, self.conn_info.id, 0)
@@ -71,7 +69,39 @@ class EditConnDBWorker(ConnDBWorker):
         self.success_signal.emit(None, self.conn_info)
 
 
-class DelConnDBWorker(ConnDBWorker):
+class DelWorkerABC(QThread):
+
+    error_signal = pyqtSignal(str)
+    success_signal = pyqtSignal(list)
+
+    def __init__(self):
+        super().__init__()
+
+    def run(self):
+        try:
+            self.do_run()
+        except Exception as e:
+            self.error_signal.emit(str(e))
+
+    def do_run(self): ...
+
+
+class CloseConnDBWorker(DelWorkerABC):
+
+    def __init__(self, parent_id, level):
+        super().__init__()
+        self.parent_id = parent_id
+        self.level = level
+
+    def do_run(self):
+        # 获取应该被删除的tab order
+        tab_orders = OpenedItemSqlite().get_tab_orders((self.parent_id,), self.level)
+        # 根据父id递归删除
+        OpenedItemSqlite().recursive_delete(self.parent_id, self.level)
+        self.success_signal.emit(tab_orders if tab_orders else list())
+
+
+class DelConnDBWorker(DelWorkerABC):
 
     def __init__(self, conn_id):
         super().__init__()
@@ -80,54 +110,60 @@ class DelConnDBWorker(ConnDBWorker):
     def do_run(self):
         # 删除conn连接
         ConnSqlite().delete(self.conn_id)
-        # 删除opened item中的连接
+        # 删除opened item
         OpenedItemSqlite().delete_by_parent(self.conn_id)
         # 删除tab
         TabSqlite().delete_by_conn_id(self.conn_id)
+        # 发射空信号就可以
+        self.success_signal.emit(list())
+
+
+class CloseDelConnDBWorker(DelWorkerABC):
+
+    def __init__(self, conn_id):
+        super().__init__()
+        self.conn_id = conn_id
+
+    def do_run(self):
+        # 获取应该被删除的tab order
+        tab_orders = OpenedItemSqlite().get_tab_orders((self.conn_id,))
+        # 根据父id递归删除
+        OpenedItemSqlite().recursive_delete(self.conn_id, 0)
+        # 删除conn连接
+        ConnSqlite().delete(self.conn_id)
+        # 删除tab
+        TabSqlite().delete_by_conn_id(self.conn_id)
+        self.success_signal.emit(tab_orders if tab_orders else list())
+
 
 # ----------------------- thread worker 管理 -----------------------
 
 
-class ConnDBABC(QObject):
+class ConnDBABC(LoadingMaskType):
 
     def __init__(self, window, title, prompt):
-        super().__init__()
-        self.window = window
-        self.title = title
+        super().__init__(window, title)
         self.prompt = prompt
-        # 自定义线程工作对象
-        self.worker = self.get_worker()
 
-        self.worker.success_signal.connect(lambda opened_conn_id, conn:
-                                           self.success(opened_conn_id, conn))
-        self.worker.error_signal.connect(lambda error_msg: self.fail(error_msg))
-        self.worker.start()
-
-    def get_worker(self) -> ConnDBWorker: ...
-
-    def success(self, opened_conn_id, conn):
-        pop_ok(self.prompt, self.title, self.window)
-        self.post_process(opened_conn_id, conn)
-
-    def fail(self, error_msg):
-        pop_fail(error_msg, self.title, self.window)
-
-    def post_process(self, opened_conn_id, conn): ...
+    def post_process(self):
+        super().post_process()
+        pop_ok(self.prompt, self.error_box_title, self.window)
+        self.window.close()
 
 
 class AsyncAddConnDB(ConnDBABC):
 
-    def __init__(self, conn_info: Connection, tree_widget, *args):
+    def __init__(self, conn_info: Connection, tree_widget, callback, *args):
         self.conn_info = conn_info
         self.tree_widget = tree_widget
+        self.callback = callback
         super().__init__(*args)
 
     def get_worker(self) -> ConnDBWorker:
         return AddConnDBWorker(self.conn_info)
 
-    def post_process(self, opened_conn_id, conn_info):
-        self.window.close()
-        add_conn_tree_item(self.tree_widget, conn_info, opened_conn_id)
+    def success_post_process(self, opened_conn_id, conn_info):
+        self.callback(self.tree_widget, conn_info, opened_conn_id)
 
 
 class AsyncEditConnDB(ConnDBABC):
@@ -140,11 +176,52 @@ class AsyncEditConnDB(ConnDBABC):
     def get_worker(self) -> ConnDBWorker:
         return EditConnDBWorker(self.conn_info)
 
-    def post_process(self, opened_conn_id, conn):
-        self.window.close()
+    def success_post_process(self, opened_conn_id, conn):
         self.tree_item.setText(2, dict(zip(conn._fields, conn)))
         self.tree_item.setText(0, conn.name)
 
 
+# ----------------------- 关闭相关 -----------------------
+
+class AsyncCloseConnDB(IconMovieType):
+
+    def __init__(self, parent_id, level, callback, *args):
+        self.parent_id = parent_id
+        self.level = level
+        self.callback = callback
+        super().__init__(*args)
+
+    def get_worker(self):
+        return CloseConnDBWorker(self.parent_id, self.level)
+
+    def success_post_process(self, *args):
+        self.callback(*args, self.item, self.window.tab_widget)
 
 
+class AsyncDelConnDB(IconMovieType):
+
+    def __init__(self, conn_id, callback, tree_widget, *args):
+        self.conn_id = conn_id
+        self.callback = callback
+        self.tree_widget = tree_widget
+        super().__init__(*args)
+
+    def get_worker(self):
+        return DelConnDBWorker(self.conn_id)
+
+    def success_post_process(self, *args):
+        self.callback(self.item, self.tree_widget)
+
+
+class AsyncCloseDelConnDB(IconMovieType):
+
+    def __init__(self, conn_id, callback, *args):
+        self.conn_id = conn_id
+        self.callback = callback
+        super().__init__(*args)
+
+    def get_worker(self):
+        return CloseDelConnDBWorker(self.conn_id)
+
+    def success_post_process(self, *args):
+        self.callback(self.item, self.window.tab_widget, self.window.tree_widget, *args)

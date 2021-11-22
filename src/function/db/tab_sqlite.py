@@ -67,6 +67,6 @@ class TabSqlite(SqliteBasic):
         return TabObj(*data) if data else TabObj(*((None,) * len(TabObj._fields)))
 
     def delete_by_conn_id(self, conn_id):
-        sql = tab_sql.get('select_by_tab_id')
+        sql = tab_sql.get('delete_by_conn_id')
         self.cursor.execute(sql, (conn_id,))
         self.conn.commit()

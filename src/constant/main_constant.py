@@ -29,6 +29,7 @@ CLOSE_SERVICE_MENU = "关闭服务"
 
 """关于方法的右键菜单"""
 OPEN_METHOD_MENU = "打开方法详情"
+CLOSE_METHOD_MENU = "关闭方法详情"
 
 # 按钮文案
 OK_BUTTON = "确定"
@@ -39,3 +40,5 @@ REJECT_BUTTON = "否"
 SUCCESS_TEST_PROMPT = "测试dubbo连接成功"
 # 编辑连接提示语
 EDIT_CONN_PROMPT = '编辑连接需要先关闭连接，是否继续？'
+# 删除连接提示语
+DEL_CONN_PROMPT = "删除连接需要先关闭连接，是否继续？"

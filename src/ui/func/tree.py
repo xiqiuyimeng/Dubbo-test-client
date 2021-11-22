@@ -4,12 +4,12 @@ from abc import ABC, abstractmethod
 from PyQt5.QtGui import QIcon
 
 from src.constant.main_constant import CLOSE_CONN_MENU, OPEN_CONN_MENU, TEST_CONN_MENU, ADD_CONN_MENU, EDIT_CONN_MENU, \
-    DEL_CONN_MENU, OPEN_SERVICE_MENU, CLOSE_SERVICE_MENU, EDIT_CONN_PROMPT
+    DEL_CONN_MENU, OPEN_SERVICE_MENU, CLOSE_SERVICE_MENU, EDIT_CONN_PROMPT, CLOSE_METHOD_MENU, OPEN_METHOD_MENU, \
+    DEL_CONN_PROMPT
 from src.function.db.conn_sqlite import Connection
-from src.function.db.opened_item_sqlite import OpenedItemSqlite, OpenedItem
 from src.ui.async_func.async_conn import AsyncSimpleTestConn, AsyncOpenConn, AsyncOpenService, AsyncOpenMethod
-from src.ui.box.message_box import pop_fail, pop_question
-from src.ui.func.common import exception_handler
+from src.ui.async_func.async_conn_db import AsyncCloseConnDB, AsyncDelConnDB, AsyncCloseDelConnDB
+from src.ui.box.message_box import pop_question
 from src.ui.tab.tab_ui import TabUI
 from src.ui.tree_item.my_tree_item import MyTreeWidgetItem
 
@@ -17,29 +17,11 @@ _author_ = 'luwt'
 _date_ = '2021/11/3 22:36'
 
 
-def add_conn_item(tree_widget, conn):
-    """添加连接树节点"""
-    # 保存连接节点到已打开项中，在隐藏列写入id，opened item 父id指向conn id
-    opened_item = OpenedItem(None, None, None, None, False, False, conn.id, 0)
-    saved_conn_id = OpenedItemSqlite().insert(opened_item)
-    add_conn_tree_item(tree_widget, conn, first_col_text=saved_conn_id)
-
-
 def add_conn_tree_item(tree_widget, conn, first_col_text=None):
     # item属性：id name host port timeout
     # 根节点，展示连接的列表，将连接信息写入隐藏列
     return make_tree_item(tree_widget, conn.name, QIcon(":/icon/mysql_conn_icon.png"),
                           first_col_text=first_col_text, second_col_text=dict(zip(conn._fields, conn)))
-
-
-def reopen_conn_item(window, item, parent_id):
-    """重新打开连接项"""
-    conns = OpenedItemSqlite().select_children(parent_id, 0)
-    if conns:
-        conn = conns[0]
-        item.setText(1, conn.id)
-        node = tree_node_factory(item)
-        Context(node).reopen_item(item, conn.id, window, conn.expanded, window.tab_widget)
 
 
 def make_tree_item(parent, text, icon, checkbox=None, first_col_text=None, second_col_text=None):
@@ -63,41 +45,6 @@ def make_tree_item(parent, text, icon, checkbox=None, first_col_text=None, secon
     if checkbox is not None:
         item.setCheckState(0, checkbox)
     return item
-
-
-def make_service_items(result, item):
-    if result:
-        for service, saved_service_id in result:
-            make_tree_item(item, service, QIcon(":/icon/mysql_conn_icon.png"),
-                           first_col_text=saved_service_id)
-        item.setExpanded(True)
-
-
-def make_method_items(result, item):
-    if result:
-        for method_dict, saved_method_id in result:
-            method_name = method_dict.get("method_name")
-            # 将方法详细信息写入隐藏列
-            make_tree_item(item, method_name, QIcon(":/icon/mysql_conn_icon.png"),
-                           first_col_text=saved_method_id, second_col_text=method_dict)
-        item.setExpanded(True)
-
-
-def make_method_tab(item_order, item, tab_widget, tab_id):
-    if item_order >= 0:
-        tab_widget.setCurrentIndex(item_order)
-    else:
-        method_name = item.text(0)
-        service_path = item.parent().text(0)
-        method_dict = eval(item.text(2))
-        conn_dict = eval(item.parent().parent().text(2))
-        tab_ui = TabUI(tab_widget,
-                       method_name,
-                       service_path,
-                       method_dict,
-                       conn_dict,
-                       tab_id)
-        tab_ui.set_up_tab()
 
 
 def tree_node_factory(item):
@@ -129,6 +76,15 @@ def get_conn_info(text):
     return host, port, timeout
 
 
+def close_item_ui(tab_order, item, tab_widget):
+    if tab_order:
+        # 将order从大到小排序，然后关闭对应的tab
+        sorted_order = sorted(tab_order, reverse=True)
+        for order in sorted_order:
+            tab_widget.removeTab(order)
+    item.takeChildren()
+
+
 class Context:
 
     def __init__(self, tree_node):
@@ -143,9 +99,6 @@ class Context:
     def close_item(self, item, window):
         return self.tree_node.close_item(item, window)
 
-    def change_check_box(self, item, check_state, window):
-        return self.tree_node.change_check_box(item, check_state, window)
-
     def get_menu_names(self, item, window):
         return self.tree_node.get_menu_names(item, window)
 
@@ -159,13 +112,13 @@ class TreeNodeAbstract(ABC):
     def open_item(self, item, window): ...
 
     @abstractmethod
+    def open_item_ui(self, *args): ...
+
+    @abstractmethod
     def reopen_item(self, item, children_data, item_dict, expanded=None, tab_widget=None): ...
 
     @abstractmethod
     def close_item(self, item, window): ...
-
-    @abstractmethod
-    def change_check_box(self, item, check_state, window): ...
 
     @abstractmethod
     def get_menu_names(self, item, window): ...
@@ -176,7 +129,6 @@ class TreeNodeAbstract(ABC):
 
 class TreeNodeConn(TreeNodeAbstract):
 
-    @exception_handler(pop_fail, "打开连接失败")
     def open_item(self, item: MyTreeWidgetItem, window):
         """
         打开连接，展示连接下的所有service列表
@@ -189,7 +141,14 @@ class TreeNodeConn(TreeNodeAbstract):
             conn_info = get_conn_info(item.text(2))
             # 在opened item中保存的连接id
             saved_conn_id = item.text(1)
-            AsyncOpenConn(conn_info, saved_conn_id, make_service_items, item, window).start()
+            AsyncOpenConn(conn_info, saved_conn_id, self.open_item_ui, item, window).start()
+
+    def open_item_ui(self, result, item):
+        if result:
+            for service, saved_service_id in result:
+                make_tree_item(item, service, QIcon(":/icon/mysql_conn_icon.png"),
+                               first_col_text=saved_service_id)
+            item.setExpanded(True)
 
     def reopen_item(self, item, children_data, item_dict, expanded=None, tab_widget=None):
         """重新打开连接下的服务列表，展开已保存的服务列表"""
@@ -206,10 +165,7 @@ class TreeNodeConn(TreeNodeAbstract):
         :param item: 当前点击树节点元素
         :param window: 启动的主窗口界面对象
         """
-        TreeNodeDB().close_item(item, window)
-        item.setExpanded(False)
-
-    def change_check_box(self, item, check_state, window): ...
+        AsyncCloseConnDB(item.text(1), 1, close_item_ui, item, window, CLOSE_CONN_MENU).start()
 
     def get_menu_names(self, item, window):
         """
@@ -240,11 +196,9 @@ class TreeNodeConn(TreeNodeAbstract):
         # 打开连接
         if func == OPEN_CONN_MENU:
             self.open_item(item, window=window)
-            item.setExpanded(True)
         # 关闭连接
         elif func == CLOSE_CONN_MENU:
-            if self.close_conn(conn_name, func, window):
-                self.close_item(item, window)
+            self.close_item(item, window)
         # 测试连接
         elif func == TEST_CONN_MENU:
             conn_info = eval(item.text(2))
@@ -254,29 +208,10 @@ class TreeNodeConn(TreeNodeAbstract):
             window.add_conn()
         # 编辑连接
         elif func == EDIT_CONN_MENU:
-            window.edit_conn(Connection(**eval(item.text(2))), item)
+            self.edit_conn(window, item)
         # 删除连接
         elif func == DEL_CONN_MENU:
-            self.del_conn(func, window, conn_name, conn_id, item)
-
-    @staticmethod
-    def close_conn(conn_name, func, window):
-        """
-        关闭数据连接，关闭特定连接，name为标识，
-        如果在此连接下已选择了字段。那么弹窗确认是否关闭，
-        如果关闭将清空此连接所选的字段
-        :param conn_name: 连接名称
-        :param func: 功能名称，用于展示在弹窗标题处
-        :param window: 启动的主窗口界面对象
-        """
-        if SelectedData().get_db_dict(conn_name, True):
-            reply = pop_question(func, CLOSE_CONN_PROMPT)
-            if reply:
-                SelectedData().unset_conn(conn_name)
-            else:
-                return False
-        close_connection(window, conn_name)
-        return True
+            self.del_conn(window, eval(item.text(2)).get("id"), item)
 
     def edit_conn(self, window, item):
         """
@@ -288,65 +223,42 @@ class TreeNodeConn(TreeNodeAbstract):
         """
         # 先判断是否打开
         if item.childCount() > 0:
-            if pop_question(EDIT_CONN_MENU, EDIT_CONN_PROMPT):...
+            if pop_question(EDIT_CONN_MENU, EDIT_CONN_PROMPT):
                 # 开始关闭连接
+                self.close_item(item, window)
             else:
                 return
         window.edit_conn(Connection(**eval(item.text(2))), item)
 
-
-    def del_conn(self, func, window, conn_name, conn_id, item):
+    def del_conn(self, window, conn_id, item):
         """
-        删除连接，如果连接下有选择字段，弹窗确认是否清空字段并删除连接，
-        否则弹窗是否删除连接
-        :param func: 功能名称
+        删除连接，如果连接已经打开，弹窗是否删除连接
         :param window: 启动的主窗口界面对象
-        :param conn_name: 连接名称
         :param conn_id: 连接id
         :param item: 当前点击树节点元素
         """
-        # 判断是否有选择字段
-        if SelectedData().get_db_dict(conn_name, True):
-            if pop_question(func, DEL_CONN_WITH_FIELD_PROMPT):
-                SelectedData().unset_conn(conn_name)
-                self.close_and_delete_conn(window, conn_name, conn_id, item)
+        # 先判断是否打开
+        if item.childCount() > 0:
+            if pop_question(DEL_CONN_MENU, DEL_CONN_PROMPT):
+                # 开始关闭并删除连接
+                AsyncCloseDelConnDB(conn_id, self.close_del_conn_item, item, window, DEL_CONN_MENU).start()
         else:
-            # 弹出关闭连接确认框
-            if pop_question(func, DEL_CONN_PROMPT):
-                self.close_and_delete_conn(window, conn_name, conn_id, item)
+            AsyncDelConnDB(conn_id, self.del_conn_item, window.tree_widget, item, window, DEL_CONN_MENU).start()
 
-    def close_and_delete_conn(self, window, conn_name, conn_id, item):
-        """
-        关闭连接，删除连接
-        :param window: 启动的主窗口界面对象
-        :param conn_name: 连接名称
-        :param conn_id: 连接id
-        :param item: 当前点击树节点元素
-        """
-        self.close_item(item, window)
-        # 关闭连接
-        close_connection(window, conn_name)
-        conn_info = window.display_conn_dict[conn_id]
-        ConnSqlite().delete(conn_info.id)
-        del window.display_conn_dict[conn_id]
-        # 删除树元素
-        # 树型部件的takeTopLevelItem方法可以从树型部件中删除对应项的节点并返回该项，语法：takeTopLevelItem(index)
-        # 通过调用树型部件的indexOfTopLevelItem方法可以获得对应项在顶层项的位置，语法：indexOfTopLevelItem
-        #
-        # self.treeWidget.removeItemWidget，它从一个项中移除一个小部件，而不是QTreeWidgetItem。它对应于setItemWidget方法
-        window.treeWidget.takeTopLevelItem(window.treeWidget.indexOfTopLevelItem(item))
+    def del_conn_item(self, item, tree_widget):
+        tree_widget.takeTopLevelItem(tree_widget.indexOfTopLevelItem(item))
 
-    @staticmethod
-    def get_node_info(item):
-        """获取连接id和连接名称"""
-        conn_id = int(item.text(1))
-        conn_name = item.text(0)
-        return conn_id, conn_name
+    def close_del_conn_item(self, item, tab_widget, tree_widget, tab_order):
+        if tab_order:
+            # 将order从大到小排序，然后关闭对应的tab
+            sorted_order = sorted(tab_order, reverse=True)
+            for order in sorted_order:
+                tab_widget.removeTab(order)
+        self.del_conn_item(item, tree_widget)
 
 
 class TreeNodeService(TreeNodeAbstract):
 
-    @exception_handler(pop_fail, "打开连接失败")
     def open_item(self, item, window):
         """
         展示该服务下的所有方法，
@@ -357,7 +269,16 @@ class TreeNodeService(TreeNodeAbstract):
         if item.childCount() == 0:
             # 获取连接id和名称
             conn_info = get_conn_info(item.parent().text(2))
-            AsyncOpenService(conn_info, item.text(0), item.text(1), make_method_items, item, window).start()
+            AsyncOpenService(conn_info, item.text(0), item.text(1), self.open_item_ui, item, window).start()
+
+    def open_item_ui(self, result, item):
+        if result:
+            for method_dict, saved_method_id in result:
+                method_name = method_dict.get("method_name")
+                # 将方法详细信息写入隐藏列
+                make_tree_item(item, method_name, QIcon(":/icon/mysql_conn_icon.png"),
+                               first_col_text=saved_method_id, second_col_text=method_dict)
+            item.setExpanded(True)
 
     def reopen_item(self, item, children_data, item_dict, expanded=None, tab_widget=None):
         """重新打开service节点，获取下一级保存的数据"""
@@ -373,14 +294,7 @@ class TreeNodeService(TreeNodeAbstract):
         :param item: 当前点击树节点元素
         :param window: 启动的主窗口界面对象
         """
-        # 关闭表格，由于当前item不是表，所以应该使用当前表对象（如果有的话）
-        if hasattr(window, 'table_frame'):
-            TreeNodeTable().close_item(window.current_table, window)
-        # 移除所有子项目
-        item.takeChildren()
-        item.setExpanded(False)
-
-    def change_check_box(self, item, check_state, window): ...
+        AsyncCloseConnDB(item.text(1), 2, close_item_ui, item, window, CLOSE_SERVICE_MENU).start()
 
     def get_menu_names(self, item, window):
         """
@@ -397,59 +311,17 @@ class TreeNodeService(TreeNodeAbstract):
 
     def handle_menu_func(self, item, func, window):
         """
-        在数据库层，右键菜单的功能实现
+         服务，右键菜单的功能实现
         :param item: 当前点击树节点元素
         :param func: 右键菜单中功能名称
         :param window: 启动的主窗口界面对象
         """
-        conn_id, conn_name, db_name = TreeNodeDB.get_node_info(item)
         # 打开数据库
-        if func == OPEN_DB_MENU:
+        if func == OPEN_SERVICE_MENU:
             self.open_item(item, window)
-            item.setExpanded(True)
         # 关闭数据库
-        elif func == CLOSE_DB_MENU:
-            if self.close_db(item, func, conn_name, db_name, window):
-                self.close_item(item, window)
-        # 全选所有表
-        elif func == SELECT_ALL_TB_MENU:
-            select_table = AsyncSelectTable(window, item, conn_id, conn_name, db_name)
-            select_table.select_table()
-        # 取消全选表
-        elif func == UNSELECT_TB_MENU:
-            # 将子节点都置为未选中状态
-            set_children_check_state(item, Qt.Unchecked)
-            # 清空容器中的值
-            SelectedData().unset_tbs(window, conn_name, db_name)
-            if hasattr(window, 'table_frame') and window.current_table.parent() is item:
-                change_table_checkbox(window, window.current_table, False)
-
-    @staticmethod
-    def close_db(item, func, conn_name, db_name, window):
-        """
-        关闭数据库，如果此库下已选择了字段，弹窗确认是否关闭，
-        如果关闭，将清空此库下所选字段
-        :param item: 当前点击树节点元素，也就是库
-        :param func: 功能名称，用于展示在弹窗标题处
-        :param conn_name: 连接名称
-        :param db_name: 库名称
-        :param window: 启动的主窗口界面对象
-        """
-        check_status = check_table_status(item)
-        if any(check_status):
-            if pop_question(func, CLOSE_DB_PROMPT):
-                SelectedData().unset_db(window, conn_name, db_name)
-            else:
-                return False
-        return True
-
-    @staticmethod
-    def get_node_info(item):
-        """获取连接id、连接名称、数据库名称"""
-        conn_id = int(item.parent().text(1))
-        conn_name = item.parent().text(0)
-        db_name = item.text(0)
-        return conn_id, conn_name, db_name
+        elif func == CLOSE_SERVICE_MENU:
+            self.close_item(item, window)
 
 
 class TreeNodeMethod(TreeNodeAbstract):
@@ -465,7 +337,23 @@ class TreeNodeMethod(TreeNodeAbstract):
         method_name = item.text(0)
         # 首先构造tab的id：conn_id + service + method_name
         tab_id = f'{conn_dict.get("id")}-{service_path}-{method_name}'
-        AsyncOpenMethod(item, window, tab_id, window.tab_widget.count(), item.text(1), make_method_tab).start()
+        AsyncOpenMethod(item, window, tab_id, window.tab_widget.count(), item.text(1), self.open_item_ui).start()
+
+    def open_item_ui(self, item_order, item, tab_widget, tab_id):
+        if item_order >= 0:
+            tab_widget.setCurrentIndex(item_order)
+        else:
+            method_name = item.text(0)
+            service_path = item.parent().text(0)
+            method_dict = eval(item.text(2))
+            conn_dict = eval(item.parent().parent().text(2))
+            tab_ui = TabUI(tab_widget,
+                           method_name,
+                           service_path,
+                           method_dict,
+                           conn_dict,
+                           tab_id)
+            tab_ui.set_up_tab()
 
     def reopen_item(self, item, children_data, item_dict, expanded=None, tab_widget=None):
         opened_tab = children_data[0]
@@ -486,31 +374,16 @@ class TreeNodeMethod(TreeNodeAbstract):
 
     def close_item(self, item, window):
         """
-        关闭右侧表格
+        关闭右侧对应的tab页
         :param item: 当前点击树节点元素
         :param window: 启动的主窗口界面对象
         """
-        if check_table_opened(window, item):
-            # 关闭表格
-            close_table(window)
+        AsyncCloseConnDB(item.text(1), 3, self.close_item_ui, item, window, CLOSE_METHOD_MENU).start()
 
-    def change_check_box(self, item, check_state, window):
-        """
-        修改复选框状态，当前元素复选框状态应与表格控件中的复选框联动
-        :param item: 当前点击树节点元素
-        :param check_state: 复选框选中状态：全选、部分选、未选择
-        :param window: 启动的主窗口界面对象
-        """
-        conn_id, conn_name, db_name, tb_name = TreeNodeTable.get_node_info(item)
-        # 如果表已经选中，那么右侧表格需全选字段
-        if check_state == Qt.Checked:
-            select_table = AsyncSelectTable(window, item, conn_id, conn_name, db_name, tb_name)
-            select_table.select_table()
-        # 如果表未选中，那么右侧表格需清空选择
-        elif check_state == Qt.Unchecked:
-            # 从容器删除表名
-            SelectedData().unset_tbs(window, conn_name, db_name, tb_name)
-            change_table_checkbox(window, item, False)
+    def close_item_ui(self, tab_order, item, tab_widget):
+        if tab_order:
+            # 关闭对应tab
+            tab_widget.removeTab(tab_order[0])
 
     def get_menu_names(self, item, window):
         """
@@ -518,11 +391,7 @@ class TreeNodeMethod(TreeNodeAbstract):
         :param item: 当前点击树节点元素
         :param window: 启动的主窗口界面对象
         """
-        table_opened = hasattr(window, 'table_frame') \
-            and window.table_header.isVisible() \
-            and window.current_table is item
-        check_state = item.checkState(0)
-        return get_table_menu_names(table_opened, check_state)
+        return [OPEN_METHOD_MENU, CLOSE_METHOD_MENU]
 
     def handle_menu_func(self, item, func, window):
         """
@@ -531,26 +400,9 @@ class TreeNodeMethod(TreeNodeAbstract):
         :param func: 右键菜单中功能名称
         :param window: 启动的主窗口界面对象
         """
-        # 打开表
-        if func == OPEN_TABLE_MENU:
+        # 打开方法详情tab页
+        if func == OPEN_METHOD_MENU:
             self.open_item(item, window)
-        # 关闭表
-        elif func == CLOSE_TABLE_MENU:
-            close_table(window)
-        # 全选字段
-        elif func == SELECT_ALL_FIELD_MENU:
-            item.setCheckState(0, Qt.Checked)
-            self.change_check_box(item, Qt.Checked, window)
-        # 取消选择字段
-        elif func == UNSELECT_FIELD_MENU:
-            item.setCheckState(0, Qt.Unchecked)
-            self.change_check_box(item, Qt.Unchecked, window)
-
-    @staticmethod
-    def get_node_info(item):
-        """获取连接id，连接名称，数据库名，表名"""
-        conn_id = int(item.parent().parent().text(1))
-        conn_name = item.parent().parent().text(0)
-        db_name = item.parent().text(0)
-        tb_name = item.text(0)
-        return conn_id, conn_name, db_name, tb_name
+        # 关闭方法详情tab页
+        elif func == CLOSE_METHOD_MENU:
+            self.close_item(item, window)

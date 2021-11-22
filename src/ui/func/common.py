@@ -2,7 +2,11 @@
 from functools import wraps
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QLabel
+
+from src.function.db.conn_sqlite import ConnSqlite
+from src.function.db.opened_item_sqlite import OpenedItemSqlite
+from src.function.db.tab_sqlite import TabSqlite
 
 _author_ = 'luwt'
 _date_ = '2021/11/1 11:27'
@@ -43,3 +47,9 @@ def set_up_label(parent: QWidget, text: str, obj_name: str):
     label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
     return label
 
+
+def close_sqlite():
+    # 关闭sqlite连接
+    ConnSqlite().close()
+    OpenedItemSqlite().close()
+    TabSqlite().close()

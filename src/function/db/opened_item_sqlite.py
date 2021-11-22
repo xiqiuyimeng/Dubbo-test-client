@@ -12,7 +12,6 @@ _date_ = '2021/11/12 16:56'
 # expanded：是否展开，parent_id：父id，level：在树结构中的级别，树结构：（0，1，2），tab页：3
 OpenedItem = namedtuple('OpenedItem', 'id item_name ext_info item_order is_current expanded parent_id level')
 
-
 opened_item_sql = {
     'create': '''create table if not exists opened_item
     (id integer PRIMARY KEY autoincrement,
@@ -30,10 +29,11 @@ opened_item_sql = {
     'delete_by_name': 'delete from opened_item where item_name = ?',
     'select': 'select * from opened_item',
     'select_insert_id': 'select id from opened_item order by id desc limit 1',
-    'select_children': 'select * from opened_item where parent_id = ? and level = ?',
+    'select_children': 'select * from opened_item where level = ? and parent_id in ',
     'select_by_name': 'select * from opened_item where item_name = ?',
     'reset_current': 'update opened_item set is_current = 0 where is_current = 1',
     'set_current': 'update opened_item set is_current = 1 where item_name = ?',
+    'batch_delete': 'delete from opened_item where id in ',
     'delete_by_parent': 'delete from opened_item where parent_id = ?',
 }
 
@@ -60,7 +60,7 @@ class OpenedItemSqlite(SqliteBasic):
         super().insert(mapping_obj)
 
     def select_children(self, parent_id, level):
-        self.cursor.execute(opened_item_sql.get('select_children'), (parent_id, level))
+        self.cursor.execute(f"{opened_item_sql.get('select_children')}(?)", (level, parent_id))
         data = self.cursor.fetchall()
         result = list()
         [result.append(OpenedItem(*row)) for row in data]
@@ -69,7 +69,7 @@ class OpenedItemSqlite(SqliteBasic):
     def select_by_name(self, item_name):
         """根据名称查询"""
         sql = opened_item_sql.get('select_by_name')
-        self.cursor.execute(sql, (item_name, ))
+        self.cursor.execute(sql, (item_name,))
         data = self.cursor.fetchone()
         return OpenedItem(*data) if data else None
 
@@ -100,10 +100,33 @@ class OpenedItemSqlite(SqliteBasic):
 
     def delete_by_name(self, item_name):
         sql = opened_item_sql.get('delete_by_name')
-        self.cursor.execute(sql, (item_name, ))
+        self.cursor.execute(sql, (item_name,))
         self.conn.commit()
+
+    def recursive_delete(self, parent_id, level=0):
+        # 递归删除
+        if level <= 3:
+            self.cursor.execute(f"{opened_item_sql.get('select_children')}(?)", (level, parent_id))
+            data = self.cursor.fetchall()
+            if data:
+                children_ids = tuple(map(lambda x: x[0], data))
+                sql = f"{opened_item_sql.get('batch_delete')}({', '.join('?' * (len(children_ids)))})"
+                self.cursor.execute(sql, children_ids)
+                self.conn.commit()
+                level += 1
+                [self.recursive_delete(child_id, level) for child_id in children_ids]
+
+    def get_tab_orders(self, parent_ids, level=0):
+        sql = f"{opened_item_sql.get('select_children')}({','.join('?' * len(parent_ids))})"
+        self.cursor.execute(sql, (level, *parent_ids))
+        data = self.cursor.fetchall()
+        if data:
+            if level == 3:
+                return list(map(lambda x: x[3], data))
+            else:
+                return self.get_tab_orders(list(map(lambda x: x[0], data)), level + 1)
 
     def delete_by_parent(self, parent_id):
         sql = opened_item_sql.get('delete_by_parent')
-        self.cursor.execute(sql, (parent_id,))
+        self.cursor.execute(sql, (parent_id, ))
         self.conn.commit()
