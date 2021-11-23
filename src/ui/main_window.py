@@ -54,7 +54,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tab_layout = QtWidgets.QVBoxLayout(self.tab_frame)
         self.tab_layout.setObjectName("tab_layout")
         # 右边tab区
-        self.tab_widget = MyTabWidget(self.tab_frame)
+        self.tab_widget = MyTabWidget(self.tab_frame, main_window=self)
         self.tab_widget.setObjectName("tab_widget")
         self.tab_bar = MyTabBar(self.tab_widget)
         self.tab_bar.setObjectName("tab_bar")
@@ -158,4 +158,5 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def close(self):
         close_sqlite()
+        self.tab_widget.close()
         super().close()

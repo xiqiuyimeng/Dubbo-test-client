@@ -5,10 +5,11 @@ from datetime import datetime
 from PyQt5.QtWidgets import QPlainTextEdit, QTextBrowser, QLabel, QTabWidget, QWidget, QVBoxLayout, QPushButton, \
     QHBoxLayout, QGridLayout, QComboBox
 
+from src.constant.main_constant import OPEN_METHOD_MENU
 from src.constant.tab_constant import SEND_BUTTON, SENDING_BUTTON, ARGS_TAB_TITLE, JSON_TAB_TITLE, \
     RESULT_DISPLAY, REQUEST_TIME, RESPONSE_TIME, COST_TIME, REQUEST_FAIL, RESULT_DISPLAY_RAW, RESULT_DISPLAY_JSON
-from src.function.db.tab_sqlite import TabSqlite, TabObj
-from src.ui.async_func.async_tab import AsyncSendRequestManager
+from src.function.db.tab_sqlite import TabObj
+from src.ui.async_func.async_tab import AsyncSendRequestManager, AsyncReadTabObjManager
 from src.ui.func.common import set_up_label
 from src.ui.tab.tab_widget import ParamTabWidget
 from src.ui.table.table_widget import ParamTableWidget
@@ -76,14 +77,10 @@ class TabUI:
         self.method_name = f"方法名称：{self.method_dict.get('method_name')}"
         self.method_param = f"参数详情：{self.method_dict.get('param_type')}"
         self.method_result = f"返回类型：{self.method_dict.get('result_type')}"
-        # 从库里读取的数据
-        self.tab_obj: TabObj = ...
         # 维护的当前页数据
         self.tab_obj_dict: dict = ...
-        # 当前是否已保存tab
-        self.tab_saved_flag: bool = ...
         # 是否正在回显数据
-        self.fill_flag = False
+        self.filling_flag = False
 
     def set_up_tab(self, tab_order=None):
         self.tab = QWidget()
@@ -109,10 +106,7 @@ class TabUI:
         tab_vertical_layout.setStretch(2, 5)
 
         # 处理tab obj
-        self.set_up_tab_obj()
-        # 如果保存过，回显数据
-        if self.tab_saved_flag:
-            self.fill_data()
+        AsyncReadTabObjManager(self.tab_id, self.set_up_tab_obj, self.tab, self.window, OPEN_METHOD_MENU).start()
         if tab_order:
             # 按顺序插入到 parent temp_tab_list 中
             self.parent.temp_tab_list.append((tab_order, self.tab, self.title))
@@ -292,6 +286,9 @@ class TabUI:
         self.request_time_label.setText(f"请求时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         # 清空结果区
         self.result_browser.clear()
+        self.rpc_result = ""
+        self.response_time_label.setText("响应时间：")
+        self.result_count_label.setText('接口耗时：')
         method = self.method_dict.get("method_name")
         request_param = self.get_param()
         if request_param:
@@ -311,7 +308,6 @@ class TabUI:
         self.save_result()
 
     def request_fail(self):
-        self.response_time_label.setText("响应时间：")
         # 恢复发送按钮
         self.enable_send_button()
         # 保存结果信息
@@ -364,15 +360,15 @@ class TabUI:
         else:
             self.result_browser.setText(self.rpc_result)
 
-    def set_up_tab_obj(self):
+    def set_up_tab_obj(self, tab_obj):
         """如果之前没有保存过，初始化一个新的tab_obj_dict，按当前tab页的属性进行构造"""
-        self.tab_obj = TabSqlite().select_by_tab_id(self.tab_id)
-        self.tab_saved_flag = self.tab_obj.id is not None
-        if self.tab_saved_flag:
-            self.tab_obj_dict = dict(zip(self.tab_obj._fields, self.tab_obj))
+        if tab_obj.id is not None:
+            self.tab_obj_dict = dict(zip(tab_obj._fields, tab_obj))
             # 处理下两个dict
-            self.tab_obj_dict['param_args_dict'] = eval(self.tab_obj.param_args_dict)
-            self.tab_obj_dict['param_desc_dict'] = eval(self.tab_obj.param_desc_dict)
+            self.tab_obj_dict['param_args_dict'] = eval(tab_obj.param_args_dict)
+            self.tab_obj_dict['param_desc_dict'] = eval(tab_obj.param_desc_dict)
+            # 如果保存过，回显数据
+            self.fill_data(tab_obj)
         else:
             self.tab_obj_dict = dict()
             # id conn_id tab_id param_type param_args_dict param_json param_desc_dict
@@ -384,44 +380,44 @@ class TabUI:
             self.tab_obj_dict['param_desc_dict'] = dict()
             self.tab_obj_dict['result_display'] = self.result_display_combo_box.currentIndex()
 
-    def fill_data(self):
-        self.fill_flag = True
+    def fill_data(self, tab_obj):
+        self.filling_flag = True
         # 处理参数类型
-        param_type = self.tab_obj.param_type
+        param_type = tab_obj.param_type
         self.param_edit_tab_widget.decide_current_tab(self.method_param_list, param_type)
         # 填充param表格区
-        param_args_dict = eval(self.tab_obj.param_args_dict)
+        param_args_dict = eval(tab_obj.param_args_dict)
         if param_args_dict:
             self.table_widget.fill_table_column(list(param_args_dict.values()), 1)
-        param_desc_dict = eval(self.tab_obj.param_desc_dict)
+        param_desc_dict = eval(tab_obj.param_desc_dict)
         if param_desc_dict:
             self.table_widget.fill_table_column(list(param_desc_dict.values()), 2)
         # 填充param json区
-        self.json_edit_area.setPlainText(self.tab_obj.param_json)
+        self.json_edit_area.setPlainText(tab_obj.param_json)
         # combo box
-        self.result_display_combo_box.setCurrentIndex(self.tab_obj.result_display)
+        self.result_display_combo_box.setCurrentIndex(tab_obj.result_display)
         # 请求时间
-        self.request_time_label.setText(self.tab_obj.request_time)
+        self.request_time_label.setText(tab_obj.request_time)
         # 响应时间
-        self.response_time_label.setText(self.tab_obj.response_time)
+        self.response_time_label.setText(tab_obj.response_time)
         # 耗时
-        self.result_count_label.setText(self.tab_obj.method_cost)
+        self.result_count_label.setText(tab_obj.method_cost)
         # 结果
-        self.rpc_result = self.tab_obj.result
+        self.rpc_result = tab_obj.result
         self.display_result_browser()
         # 重置标志位
-        self.fill_flag = False
+        self.filling_flag = False
 
     # ---------------------------- save tab func ---------------------------- #
     def save_param_type(self, index):
         """保存当前的param_type"""
-        if not self.fill_flag:
+        if not self.filling_flag:
             self.tab_obj_dict['param_type'] = index
             self.save_tab_change()
 
     def save_args_table_col(self, row, col, text):
         """保存当前的args参数表格内容"""
-        if not self.fill_flag:
+        if not self.filling_flag:
             if col == 1:
                 # 字典保存形式
                 self.tab_obj_dict['param_args_dict'][row] = text
@@ -431,19 +427,19 @@ class TabUI:
 
     def save_json_area(self):
         """保存当前的json编辑区"""
-        if not self.fill_flag:
+        if not self.filling_flag:
             self.tab_obj_dict['param_json'] = self.json_edit_area.toPlainText()
             self.save_tab_change()
 
     def save_result_display(self):
         """保存当前combo box状态"""
-        if not self.fill_flag:
+        if not self.filling_flag:
             self.tab_obj_dict['result_display'] = self.result_display_combo_box.currentIndex()
             self.save_tab_change()
 
     def save_result(self):
         """保存和结果相关内容，请求时间，响应时间，耗时，结果"""
-        if not self.fill_flag:
+        if not self.filling_flag:
             self.tab_obj_dict['request_time'] = self.request_time_label.text()
             self.tab_obj_dict['response_time'] = self.response_time_label.text()
             self.tab_obj_dict['method_cost'] = self.result_count_label.text()
@@ -457,13 +453,12 @@ class TabUI:
         for field in TabObj._fields:
             self.tab_obj_dict[field] = self.tab_obj_dict.get(field)
         tab_obj = TabObj(**self.tab_obj_dict)
-        # 如果已经保存过，直接更新，如果还没保存过，需要先插入一次
-        if self.tab_saved_flag:
-            TabSqlite().update_selective(tab_obj)
-        else:
-            tab_obj_id = TabSqlite().insert(tab_obj)
+        self.parent.async_save_manager.save_tab_obj(tab_obj, self.save_post_process)
+
+    def save_post_process(self, tab_obj_id):
+        if tab_obj_id > 0:
             self.tab_obj_dict['id'] = tab_obj_id
-            self.tab_saved_flag = True
         # 保存结束后，将两个dict转回字典
         self.tab_obj_dict['param_args_dict'] = eval(self.tab_obj_dict['param_args_dict'])
         self.tab_obj_dict['param_desc_dict'] = eval(self.tab_obj_dict['param_desc_dict'])
+        self.window.setStatusTip(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 操作记录保存成功")

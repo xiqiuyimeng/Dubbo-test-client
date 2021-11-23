@@ -45,3 +45,6 @@ SUCCESS_TEST_PROMPT = "测试dubbo连接成功"
 EDIT_CONN_PROMPT = '编辑连接需要先关闭连接，是否继续？'
 # 删除连接提示语
 DEL_CONN_PROMPT = "删除连接需要先关闭连接，是否继续？"
+
+# 保存数据
+SAVE_TAB_DATA = "保存当前页操作记录"
