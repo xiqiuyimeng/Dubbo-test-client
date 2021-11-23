@@ -184,6 +184,8 @@ class ConnDialog(QDialog):
             self.name_available = name_available
         else:
             self.name_check_prompt.clear()
+        # 同步下按钮状态
+        self.check_input()
 
     def get_elided_text_by_width(self, prompt):
         """根据label的长度，将文本自动缩减，并以省略号形式展示，当前省略模式为中间的文本缩减，替换为省略号"""
