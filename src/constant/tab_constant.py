@@ -32,8 +32,10 @@ RESPONSE_TIME = "响应时间："
 # 接口耗时
 COST_TIME = "接口耗时："
 
-# 装饰器提示语，接口请求失败
+# 提示语，接口请求失败
 REQUEST_FAIL = "请求接口失败"
+# 操作记录保存成功提示语
+AUTO_SAVE_CHANGE = "自动保存操作记录成功"
 
 # tab bar右键菜单
 CLOSE_CURRENT_TAB = '关闭当前标签页'

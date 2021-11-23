@@ -81,6 +81,14 @@ class ThreadWorkManagerABC(QObject):
         self.fail_post_process()
         pop_fail(error_msg, self.error_box_title, self.window)
 
+    def worker_terminate(self):
+        self.worker.terminate()
+        self.worker_quit()
+        self.post_process()
+
+    def worker_quit(self):
+        self.worker.wait()
+
     def pre_process(self): ...
 
     def get_worker(self) -> QThread: ...

@@ -242,11 +242,10 @@ class AsyncCheckNameConnDBManager(ThreadWorkManagerABC):
         self.conn_id = conn_id
         self.callback = callback
         self.queue = Queue()
-        self.worker_ = CheckNameConnDBWorker(self.conn_id, self.queue)
         super().__init__(*args)
 
     def get_worker(self):
-        return self.worker_
+        return CheckNameConnDBWorker(self.conn_id, self.queue)
 
     def check_name_available(self, conn_name):
         self.queue.put((False, conn_name))
@@ -254,5 +253,6 @@ class AsyncCheckNameConnDBManager(ThreadWorkManagerABC):
     def success_post_process(self, *args):
         self.callback(*args)
 
-    def quit(self):
+    def worker_quit(self):
         self.queue.put((True, None))
+        super().worker_quit()

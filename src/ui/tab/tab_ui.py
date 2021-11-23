@@ -7,7 +7,8 @@ from PyQt5.QtWidgets import QPlainTextEdit, QTextBrowser, QLabel, QTabWidget, QW
 
 from src.constant.main_constant import OPEN_METHOD_MENU
 from src.constant.tab_constant import SEND_BUTTON, SENDING_BUTTON, ARGS_TAB_TITLE, JSON_TAB_TITLE, \
-    RESULT_DISPLAY, REQUEST_TIME, RESPONSE_TIME, COST_TIME, REQUEST_FAIL, RESULT_DISPLAY_RAW, RESULT_DISPLAY_JSON
+    RESULT_DISPLAY, REQUEST_TIME, RESPONSE_TIME, COST_TIME, REQUEST_FAIL, RESULT_DISPLAY_RAW, RESULT_DISPLAY_JSON, \
+    AUTO_SAVE_CHANGE
 from src.function.db.tab_sqlite import TabObj
 from src.ui.async_func.async_tab import AsyncSendRequestManager, AsyncReadTabObjManager
 from src.ui.func.common import set_up_label
@@ -448,8 +449,8 @@ class TabUI:
 
     def save_tab_change(self):
         """保存tab页信息"""
-        self.tab_obj_dict['param_args_dict'] = str(self.tab_obj_dict['param_args_dict'])
-        self.tab_obj_dict['param_desc_dict'] = str(self.tab_obj_dict['param_desc_dict'])
+        self.tab_obj_dict['param_args_dict'] = str(self.tab_obj_dict.get('param_args_dict'))
+        self.tab_obj_dict['param_desc_dict'] = str(self.tab_obj_dict.get('param_desc_dict'))
         for field in TabObj._fields:
             self.tab_obj_dict[field] = self.tab_obj_dict.get(field)
         tab_obj = TabObj(**self.tab_obj_dict)
@@ -459,6 +460,6 @@ class TabUI:
         if tab_obj_id > 0:
             self.tab_obj_dict['id'] = tab_obj_id
         # 保存结束后，将两个dict转回字典
-        self.tab_obj_dict['param_args_dict'] = eval(self.tab_obj_dict['param_args_dict'])
-        self.tab_obj_dict['param_desc_dict'] = eval(self.tab_obj_dict['param_desc_dict'])
-        self.window.setStatusTip(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 操作记录保存成功")
+        self.tab_obj_dict['param_args_dict'] = eval(self.tab_obj_dict.get('param_args_dict'))
+        self.tab_obj_dict['param_desc_dict'] = eval(self.tab_obj_dict.get('param_desc_dict'))
+        self.window.setStatusTip(f"{AUTO_SAVE_CHANGE} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

@@ -106,6 +106,8 @@ class ConnDialog(QDialog):
         self.async_check_name = AsyncCheckNameConnDBManager(self.connection.id,
                                                             self.check_name_available, self, self.dialog_title)
         self.async_check_name.start()
+        # 预定义一个测试连接的线程
+        self.async_test_conn: AsyncTestConnManager = ...
 
     def setup_ui(self):
         # 当前窗口大小根据主窗口大小计算
@@ -214,7 +216,8 @@ class ConnDialog(QDialog):
 
     def test_connection(self):
         conn_info = self.get_input_connection()
-        AsyncTestConnManager(self, conn_info).start()
+        self.async_test_conn = AsyncTestConnManager(self, conn_info)
+        self.async_test_conn.start()
 
     def get_input_connection(self):
         return Connection(self.connection.id, *self.get_input())
@@ -230,7 +233,8 @@ class ConnDialog(QDialog):
             self.add_conn_worker = AsyncAddConnDBManager(new_conn, self.tree_widget, add_conn_tree_item, self,
                                                          self.dialog_title, SAVE_CONN_SUCCESS_PROMPT).start()
 
-    def close(self):
-        self.async_check_name.quit()
-        super().close()
+    def closeEvent(self, a0: QtGui.QCloseEvent):
+        self.async_check_name.worker_quit()
+        self.async_test_conn.worker_terminate()
+        super().closeEvent(a0)
 

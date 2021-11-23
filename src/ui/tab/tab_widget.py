@@ -38,7 +38,7 @@ class MyTabWidget(QTabWidget):
         del self.current
 
     def close(self):
-        self.async_save_manager.quit()
+        self.async_save_manager.worker_quit()
         super().close()
 
 

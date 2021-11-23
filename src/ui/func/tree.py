@@ -5,7 +5,7 @@ from PyQt5.QtGui import QIcon
 
 from src.constant.main_constant import CLOSE_CONN_MENU, OPEN_CONN_MENU, TEST_CONN_MENU, ADD_CONN_MENU, EDIT_CONN_MENU, \
     DEL_CONN_MENU, OPEN_SERVICE_MENU, CLOSE_SERVICE_MENU, EDIT_CONN_PROMPT, CLOSE_METHOD_MENU, OPEN_METHOD_MENU, \
-    DEL_CONN_PROMPT
+    DEL_CONN_PROMPT, CANCEL_WORK
 from src.function.db.conn_sqlite import Connection
 from src.ui.async_func.async_conn import AsyncSimpleTestConnManager, AsyncOpenConnManager, AsyncOpenServiceManager, AsyncOpenMethodManager
 from src.ui.async_func.async_conn_db import AsyncCloseConnDBManager, AsyncDelConnDBManager, AsyncCloseDelConnDBManager
@@ -178,6 +178,9 @@ class TreeNodeConn(TreeNodeAbstract):
             menu_names.append(CLOSE_CONN_MENU)
         else:
             menu_names.append(OPEN_CONN_MENU)
+        # 如果能取到正在测试的标识
+        if item.text(3) and eval(item.text(3)):
+            menu_names.append(CANCEL_WORK)
         menu_names.append(TEST_CONN_MENU)
         menu_names.append(ADD_CONN_MENU)
         menu_names.append(EDIT_CONN_MENU)
@@ -191,18 +194,19 @@ class TreeNodeConn(TreeNodeAbstract):
         :param func: 右键菜单中功能名称
         :param window: 启动的主窗口界面对象
         """
-        # 获取当前选中的连接id，连接名称
-        # conn_id, conn_name = self.get_node_info(item)
         # 打开连接
         if func == OPEN_CONN_MENU:
             self.open_item(item, window=window)
         # 关闭连接
         elif func == CLOSE_CONN_MENU:
             self.close_item(item, window)
+        elif func == CANCEL_WORK:
+            item.async_worker.worker_terminate()
         # 测试连接
         elif func == TEST_CONN_MENU:
             conn_info = eval(item.text(2))
-            AsyncSimpleTestConnManager(item, list(conn_info.values()), window).start()
+            item.async_worker = AsyncSimpleTestConnManager(item, list(conn_info.values()), window)
+            item.async_worker.start()
         # 添加连接
         elif func == ADD_CONN_MENU:
             window.add_conn()

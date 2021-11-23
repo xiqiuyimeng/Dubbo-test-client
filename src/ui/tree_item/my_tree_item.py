@@ -9,6 +9,7 @@ class MyTreeWidgetItem(QTreeWidgetItem):
 
     def __init__(self, parent):
         super().__init__(parent)
+        self.async_worker = ...
 
     def setText(self, column, text):
         if not isinstance(text, str):

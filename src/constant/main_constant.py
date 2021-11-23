@@ -15,6 +15,8 @@ ABOUT_MENU = '关于'
 """关于连接的右键菜单"""
 # 打开连接
 OPEN_CONN_MENU = '打开连接'
+# 取消
+CANCEL_WORK = "取消"
 # 关闭连接
 CLOSE_CONN_MENU = '关闭连接'
 # 测试连接

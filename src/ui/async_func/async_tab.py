@@ -109,8 +109,9 @@ class AsyncSaveTabObjManager(ThreadWorkManagerABC):
         self.callback = callback
         self.queue.put((False, tab_obj))
 
-    def quit(self):
+    def worker_quit(self):
         self.queue.put((True, None))
+        super().worker_quit()
 
     def success_post_process(self, *args):
         self.callback(*args)

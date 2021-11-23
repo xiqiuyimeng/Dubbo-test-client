@@ -131,6 +131,16 @@ class AsyncSimpleTestConnManager(IconMovieThreadWorkManager):
     def get_worker(self):
         return TestConnWorker(*self.conn_info[2:])
 
+    def pre_process(self):
+        # 写入标识，测试中
+        self.item.setText(3, True)
+        super().pre_process()
+
+    def post_process(self):
+        super().post_process()
+        # 重置标识
+        self.item.setText(3, False)
+
 
 # ----------------------- 打开相关 -----------------------
 
