@@ -24,13 +24,12 @@ def add_conn_tree_item(tree_widget, conn, first_col_text=None):
                           first_col_text=first_col_text, second_col_text=dict(zip(conn._fields, conn)))
 
 
-def make_tree_item(parent, text, icon, checkbox=None, first_col_text=None, second_col_text=None):
+def make_tree_item(parent, text, icon, first_col_text=None, second_col_text=None):
     """
     构造树的子项
     :param parent: 要构造子项的父节点元素
     :param text: 构造的子节点信息
     :param icon: 图标，该元素的展示图标对象
-    :param checkbox: 构造的子节点的复选框，可无。若存在，将当前状态写入第三列中
     :param first_col_text: 第一列隐藏信息
     :param second_col_text: 第二列隐藏信息
     """
@@ -42,8 +41,6 @@ def make_tree_item(parent, text, icon, checkbox=None, first_col_text=None, secon
         item.setText(1, first_col_text)
     if second_col_text:
         item.setText(2, second_col_text)
-    if checkbox is not None:
-        item.setCheckState(0, checkbox)
     return item
 
 

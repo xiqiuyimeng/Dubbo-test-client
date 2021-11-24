@@ -6,7 +6,8 @@ from PyQt5.QtCore import pyqtSignal
 from src.function.db.conn_sqlite import ConnSqlite, Connection
 from src.function.db.opened_item_sqlite import OpenedItem, OpenedItemSqlite
 from src.function.db.tab_sqlite import TabSqlite
-from src.ui.async_func.async_operate_abc import LoadingMaskThreadWorkManager, IconMovieThreadWorkManager, ThreadWorkManagerABC, ThreadWorkerABC
+from src.ui.async_func.async_operate_abc import LoadingMaskThreadWorkManager, \
+    IconMovieThreadWorkManager, ThreadWorkManagerABC, ThreadWorkerABC
 from src.ui.box.message_box import pop_ok
 
 _author_ = 'luwt'
@@ -145,6 +146,20 @@ class CheckNameConnDBWorker(ThreadWorkerABC):
                 self.success_signal.emit(True, None)
 
 
+class UpdateExpandedWorker(ThreadWorkerABC):
+
+    success_signal = pyqtSignal()
+
+    def __init__(self, opened_item_id, expanded):
+        super().__init__()
+        self.opened_item_id = opened_item_id
+        self.expanded = expanded
+
+    def do_run(self):
+        OpenedItemSqlite().update_expanded(self.opened_item_id, self.expanded)
+        self.success_signal.emit()
+
+
 # ----------------------- thread worker manager -----------------------
 
 
@@ -256,3 +271,14 @@ class AsyncCheckNameConnDBManager(ThreadWorkManagerABC):
     def worker_quit(self):
         self.queue.put((True, None))
         super().worker_quit()
+
+
+class AsyncUpdateExpandedManager(IconMovieThreadWorkManager):
+
+    def __init__(self, opened_item_id, expanded, *args):
+        self.opened_item_id = opened_item_id
+        self.expanded = expanded
+        super().__init__(*args)
+
+    def get_worker(self):
+        return UpdateExpandedWorker(self.opened_item_id, self.expanded)

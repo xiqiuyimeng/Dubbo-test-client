@@ -50,3 +50,5 @@ DEL_CONN_PROMPT = "删除连接需要先关闭连接，是否继续？"
 
 # 保存数据
 SAVE_TAB_DATA = "保存当前页操作记录"
+# 同步节点展开状态
+SYNC_ITEM_EXPANDED = "同步节点展开状态"

@@ -43,7 +43,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_layout = QtWidgets.QVBoxLayout(self.tree_frame)
         self.tree_layout.setObjectName("tree_layout")
         # 左边树结构
-        self.tree_widget = MyTreeWidget(self.central_widget)
+        self.tree_widget = MyTreeWidget(self.central_widget, self)
         self.tree_widget.setObjectName("tree_widget")
         self.tree_widget.headerItem().setText(0, "连接列表")
         self.tree_layout.addWidget(self.tree_widget)
@@ -111,9 +111,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # 双击树节点事件
         self.tree_widget.doubleClicked.connect(self.get_tree_list)
         # 点击、展开、收起节点，都需要让列根据内容自适应，从而可以保证水平滚动条
-        self.tree_widget.doubleClicked.connect(self.tree_widget.tree_column_resize)
-        self.tree_widget.expanded.connect(self.tree_widget.tree_column_resize)
-        self.tree_widget.collapsed.connect(self.tree_widget.tree_column_resize)
+        self.tree_widget.doubleClicked.connect(self.handle_expanded_changed)
+        self.tree_widget.expanded.connect(self.handle_expanded_changed)
+        self.tree_widget.collapsed.connect(self.handle_expanded_changed)
         # 右击事件
         self.tree_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree_widget.customContextMenuRequested.connect(self.right_click_menu)
@@ -137,6 +137,15 @@ class MainWindow(QtWidgets.QMainWindow):
         item = self.tree_widget.currentItem()
         node = tree_node_factory(item)
         Context(node).open_item(item, self)
+
+    def handle_expanded_changed(self, index):
+        # 根据当前内容决定列宽度
+        self.tree_widget.tree_column_resize()
+        # 如果正在启动软件，不需要进行监听
+        if not self.tab_widget.reopen_flag:
+            item = self.tree_widget.itemFromIndex(index)
+            expanded = self.tree_widget.itemFromIndex(index).isExpanded()
+            self.tree_widget.update_expanded(item.text(1), expanded, item)
 
     def right_click_menu(self, pos):
         """
