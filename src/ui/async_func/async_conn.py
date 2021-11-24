@@ -5,7 +5,8 @@ from src.constant.main_constant import TEST_CONN_MENU, OPEN_CONN_MENU, OPEN_SERV
     OPEN_METHOD_MENU, SUCCESS_TEST_PROMPT
 from src.function.db.conn_sqlite import Connection
 from src.function.db.opened_item_sqlite import OpenedItem, OpenedItemSqlite
-from src.ui.async_func.async_operate_abc import LoadingMaskThreadWorkManager, IconMovieThreadWorkManager, ThreadWorkerABC, ConnWorker
+from src.ui.async_func.async_operate_abc import LoadingMaskThreadWorkManager, \
+    IconMovieThreadWorkManager, ThreadWorkerABC, ConnWorker
 from src.ui.box.message_box import pop_ok
 
 _author_ = 'luwt'

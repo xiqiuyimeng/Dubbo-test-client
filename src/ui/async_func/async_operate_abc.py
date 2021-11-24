@@ -82,7 +82,8 @@ class ThreadWorkManagerABC(QObject):
         pop_fail(error_msg, self.error_box_title, self.window)
 
     def worker_terminate(self):
-        self.worker.terminate()
+        if self.worker.isRunning():
+            self.worker.terminate()
         self.worker_quit()
         self.post_process()
 
