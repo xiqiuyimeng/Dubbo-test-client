@@ -82,6 +82,8 @@ class TabUI:
         self.tab_obj_dict: dict = ...
         # 是否正在回显数据
         self.filling_flag = False
+        # 标识是否在发送请求中
+        self.sending_flag = False
 
     def set_up_tab(self, tab_order=None):
         self.tab = QWidget()
@@ -318,11 +320,13 @@ class TabUI:
         # 设置按钮不可用
         self.send_button.setDisabled(True)
         self.send_button.setText(SENDING_BUTTON)
+        self.sending_flag = True
 
     def enable_send_button(self):
         # 恢复发送按钮
         self.send_button.setDisabled(False)
         self.send_button.setText(SEND_BUTTON)
+        self.sending_flag = False
 
     def parse_result(self, result):
         """解析结果，展示"""
@@ -341,13 +345,15 @@ class TabUI:
         self.display_result_browser()
 
     def combo_box_change_func(self):
-        # 保存combo box状态
-        self.save_result_display()
-        original_text = self.result_browser.toPlainText()
-        # 如果之前有值再操作
-        if original_text:
-            self.result_browser.clear()
-            self.display_result_browser()
+        # 如果在发送请求阶段，发送请求最后会触发保存，这里不需要触发
+        if not self.sending_flag:
+            # 保存combo box状态
+            self.save_result_display()
+            original_text = self.result_browser.toPlainText()
+            # 如果之前有值再操作
+            if original_text:
+                self.result_browser.clear()
+                self.display_result_browser()
 
     def display_result_browser(self):
         if self.result_display_combo_box.currentText() == RESULT_DISPLAY_JSON:
