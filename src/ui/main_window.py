@@ -144,8 +144,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # 如果正在启动软件，不需要进行监听
         if not self.tab_widget.reopen_flag:
             item = self.tree_widget.itemFromIndex(index)
-            expanded = self.tree_widget.itemFromIndex(index).isExpanded()
-            self.tree_widget.update_expanded(item.text(1), expanded, item)
+            # method节点没有expanded属性，没有必要进行处理，监听conn和service节点就可以
+            if item.parent() is None or item.parent().parent() is None:
+                expanded = self.tree_widget.itemFromIndex(index).isExpanded()
+                self.tree_widget.update_expanded(item.text(1), expanded, item)
 
     def right_click_menu(self, pos):
         """
