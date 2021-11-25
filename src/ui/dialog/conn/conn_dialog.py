@@ -235,6 +235,8 @@ class ConnDialog(QDialog):
 
     def closeEvent(self, a0: QtGui.QCloseEvent):
         self.async_check_name.worker_quit()
-        self.async_test_conn.worker_terminate()
+        # 如果没有正在测试连接的任务，那么 async_test_conn 并没有被赋值，也就不需要强制停止线程
+        if isinstance(self.async_test_conn, AsyncTestConnManager):
+            self.async_test_conn.worker_terminate()
         super().closeEvent(a0)
 
