@@ -2,7 +2,7 @@
 import json
 from datetime import datetime
 
-from PyQt5.QtWidgets import QPlainTextEdit, QTextBrowser, QLabel, QTabWidget, QWidget, QVBoxLayout, QPushButton, \
+from PyQt5.QtWidgets import QPlainTextEdit, QLabel, QTabWidget, QWidget, QVBoxLayout, QPushButton, \
     QHBoxLayout, QGridLayout, QComboBox
 
 from src.constant.main_constant import OPEN_METHOD_MENU
@@ -12,6 +12,7 @@ from src.constant.tab_constant import SEND_BUTTON, SENDING_BUTTON, ARGS_TAB_TITL
 from src.function.db.tab_sqlite import TabObj
 from src.ui.async_func.async_tab import AsyncSendRequestManager, AsyncReadTabObjManager
 from src.ui.func.common import set_up_label
+from src.ui.scrollable_widget.scrollable_widget import MyTextBrowser
 from src.ui.tab.tab_widget import ParamTabWidget
 from src.ui.table.table_widget import ParamTableWidget
 
@@ -66,7 +67,7 @@ class TabUI:
         self.request_time_label: QLabel = ...
         self.response_time_label: QLabel = ...
         self.result_count_label: QLabel = ...
-        self.result_browser: QTextBrowser = ...
+        self.result_browser: MyTextBrowser = ...
         self.result_display_combo_box: QComboBox = ...
         self.args_edit_tab: QWidget = ...
         self.table_widget: ParamTableWidget = ...
@@ -264,7 +265,7 @@ class TabUI:
 
     def set_up_result_browser(self, parent: QWidget, layout: QVBoxLayout):
         """返回结果展示区"""
-        self.result_browser = QTextBrowser(parent)
+        self.result_browser = MyTextBrowser(parent)
         self.result_browser.setObjectName("result_browser")
         layout.addWidget(self.result_browser)
 
@@ -360,12 +361,12 @@ class TabUI:
             # 如果解析出错，应该用原生展示
             try:
                 json_format_result = json.dumps(json.loads(self.rpc_result), indent=4, ensure_ascii=False)
-                self.result_browser.setText(json_format_result)
+                self.result_browser.set_text(json_format_result)
             except:
-                self.result_browser.setText(self.rpc_result)
+                self.result_browser.set_text(self.rpc_result)
                 self.result_display_combo_box.setCurrentIndex(0)
         else:
-            self.result_browser.setText(self.rpc_result)
+            self.result_browser.set_text(self.rpc_result)
 
     def set_up_tab_obj(self, tab_obj):
         """如果之前没有保存过，初始化一个新的tab_obj_dict，按当前tab页的属性进行构造"""
