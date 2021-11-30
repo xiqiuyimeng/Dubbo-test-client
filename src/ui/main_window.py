@@ -2,7 +2,7 @@
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QCursor
-from PyQt5.QtWidgets import QVBoxLayout, QToolBar
+from PyQt5.QtWidgets import QVBoxLayout, QToolBar, QSplitter
 
 from src.constant.conn_dialog_constant import ADD_CONN_MENU, EDIT_CONN_MENU
 from src.function.db.conn_sqlite import Connection
@@ -36,21 +36,26 @@ class MainWindow(QtWidgets.QMainWindow):
         # 主部件布局为水平布局
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.central_widget)
         self.horizontalLayout.setObjectName("horizontalLayout")
+        self.main_splitter = QSplitter()
+        self.main_splitter.setOrientation(Qt.Horizontal)
+        self.main_splitter.setObjectName("main_splitter")
+        self.horizontalLayout.addWidget(self.main_splitter)
+        self.horizontalLayout.setSpacing(0)
         # 左边树结构frame
-        self.tree_frame = QtWidgets.QFrame(self.central_widget)
+        self.tree_frame = QtWidgets.QFrame(self.main_splitter)
         self.tree_frame.setObjectName("tree_frame")
-        self.horizontalLayout.addWidget(self.tree_frame)
         self.tree_layout = QtWidgets.QVBoxLayout(self.tree_frame)
         self.tree_layout.setObjectName("tree_layout")
+        self.tree_layout.setSpacing(0)
+        self.tree_layout.setContentsMargins(0, 0, 0, 0)
         # 左边树结构
-        self.tree_widget = MyTreeWidget(self.central_widget, self)
+        self.tree_widget = MyTreeWidget(self.tree_frame, self)
         self.tree_widget.setObjectName("tree_widget")
         self.tree_widget.headerItem().setText(0, "连接列表")
         self.tree_layout.addWidget(self.tree_widget)
         # 右边tab区frame
-        self.tab_frame = QtWidgets.QFrame(self.central_widget)
+        self.tab_frame = QtWidgets.QFrame(self.main_splitter)
         self.tab_frame.setObjectName("tab_frame")
-        self.horizontalLayout.addWidget(self.tab_frame)
         self.tab_layout = QtWidgets.QVBoxLayout(self.tab_frame)
         self.tab_layout.setObjectName("tab_layout")
         # 右边tab区
@@ -60,6 +65,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tab_bar.setObjectName("tab_bar")
         self.tab_widget.setTabBar(self.tab_bar)
         self.tab_layout.addWidget(self.tab_widget)
+        self.tab_layout.setSpacing(0)
+        self.tab_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_splitter.setStretchFactor(0, 2)
+        self.main_splitter.setStretchFactor(1, 5)
         # 菜单栏
         self.menubar = QtWidgets.QMenuBar(self)
         self.menubar.setObjectName("menubar")
@@ -76,6 +85,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setStatusBar(self.statusbar)
 
         self._translate = QtCore.QCoreApplication.translate
+        self.reopen_manager = ...
         self.setup_ui()
         self.translate_ui()
         self.bind_action()
@@ -107,7 +117,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def bind_action(self):
         # 异步重新打开上次退出时的工作状态
-        AsyncReopenManager(self, self.tree_widget, self.tab_widget).start()
+        self.reopen_manager = AsyncReopenManager(self, self.tree_widget, self.tab_widget)
+        self.reopen_manager.start()
         # 双击树节点事件
         self.tree_widget.doubleClicked.connect(self.get_tree_list)
         # 点击、展开、收起节点，都需要让列根据内容自适应，从而可以保证水平滚动条

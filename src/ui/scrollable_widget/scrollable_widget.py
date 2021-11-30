@@ -30,9 +30,12 @@ class MyTreeWidget(QTreeWidget, MyScrollableWidget):
     def __init__(self, parent, window):
         super().__init__(parent)
         self.window = window
+        self.update_expanded_manager = ...
 
     def update_expanded(self, opened_item_id, expanded, item):
-        AsyncUpdateExpandedManager(opened_item_id, expanded, item, self.window, SYNC_ITEM_EXPANDED).start()
+        self.update_expanded_manager = AsyncUpdateExpandedManager(opened_item_id, expanded, item,
+                                                                  self.window, SYNC_ITEM_EXPANDED)
+        self.update_expanded_manager.start()
 
     def tree_column_resize(self):
         """树节点打开或关闭，都应该重新设置，这样能保证列跟随内容变化，也就是可以随内容自动添加或去掉水平滚动条"""

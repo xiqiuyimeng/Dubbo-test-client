@@ -2,15 +2,16 @@
 import json
 from datetime import datetime
 
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QPlainTextEdit, QLabel, QTabWidget, QWidget, QVBoxLayout, QPushButton, \
-    QHBoxLayout, QGridLayout, QComboBox
+    QHBoxLayout, QGridLayout, QComboBox, QFormLayout, QSplitter
 
 from src.constant.main_constant import OPEN_METHOD_MENU
 from src.constant.tab_constant import SEND_BUTTON, SENDING_BUTTON, ARGS_TAB_TITLE, JSON_TAB_TITLE, \
     RESULT_DISPLAY, REQUEST_TIME, RESPONSE_TIME, COST_TIME, REQUEST_FAIL, RESULT_DISPLAY_RAW, RESULT_DISPLAY_JSON, \
     AUTO_SAVE_CHANGE
 from src.function.db.tab_sqlite import TabObj
-from src.ui.async_func.async_tab import AsyncSendRequestManager, AsyncReadTabObjManager
+from src.ui.async_func.async_tab import AsyncSendRequestManager, AsyncReadTabObjManager, AsyncDisplayTextBrowserManager
 from src.ui.func.common import set_up_label
 from src.ui.scrollable_widget.scrollable_widget import MyTextBrowser
 from src.ui.tab.tab_widget import ParamTabWidget
@@ -64,9 +65,9 @@ class TabUI:
         self.send_button: QPushButton = ...
         self.param_edit_tab_widget: ParamTabWidget = ...
         self.json_edit_area: QPlainTextEdit = ...
-        self.request_time_label: QLabel = ...
-        self.response_time_label: QLabel = ...
-        self.result_count_label: QLabel = ...
+        self.request_time_label_value: QLabel = ...
+        self.response_time_label_value: QLabel = ...
+        self.result_count_label_value: QLabel = ...
         self.result_browser: MyTextBrowser = ...
         self.result_display_combo_box: QComboBox = ...
         self.args_edit_tab: QWidget = ...
@@ -85,6 +86,8 @@ class TabUI:
         self.filling_flag = False
         # 标识是否在发送请求中
         self.sending_flag = False
+        self.read_tab_manager = ...
+        self.request_manager = ...
 
     def set_up_tab(self, tab_order=None):
         self.tab = QWidget()
@@ -98,19 +101,33 @@ class TabUI:
         tab_vertical_layout = QVBoxLayout(self.tab)
         tab_vertical_layout.setObjectName("tab_vertical_layout")
         # 间距为0
+        tab_vertical_layout.setSpacing(0)
         tab_vertical_layout.setContentsMargins(0, 0, 0, 0)
         # 方法展示区
         self.set_up_method_display_area(self.tab, tab_vertical_layout)
+        # 发送参数编辑区和结果展示区放在同一个区下，加上垂直的分割器，方便滑动
+        param_result_widget = QWidget(self.tab)
+        tab_vertical_layout.addWidget(param_result_widget)
+        param_result_layout = QVBoxLayout(param_result_widget)
+        param_result_splitter = QSplitter()
+        param_result_splitter.setOrientation(Qt.Vertical)
+        param_result_splitter.setObjectName("param_result_splitter")
+        param_result_layout.addWidget(param_result_splitter)
+        param_result_layout.setSpacing(0)
+        param_result_layout.setContentsMargins(0, 0, 0, 0)
         # 发送参数编辑区
-        self.set_up_param_edit_area(self.tab, tab_vertical_layout)
+        self.set_up_param_edit_area(param_result_splitter)
         # 结果展示区
-        self.set_up_result_display_area(self.tab, tab_vertical_layout)
+        self.set_up_result_display_area(param_result_splitter)
         tab_vertical_layout.setStretch(0, 1)
-        tab_vertical_layout.setStretch(1, 3)
-        tab_vertical_layout.setStretch(2, 5)
+        tab_vertical_layout.setStretch(1, 8)
+        param_result_splitter.setStretchFactor(0, 3)
+        param_result_splitter.setStretchFactor(1, 5)
 
         # 处理tab obj
-        AsyncReadTabObjManager(self.tab_id, self.set_up_tab_obj, self.tab, self.window, OPEN_METHOD_MENU).start()
+        self.read_tab_manager = AsyncReadTabObjManager(self.tab_id, self.set_up_tab_obj,
+                                                       self.tab, self.window, OPEN_METHOD_MENU)
+        self.read_tab_manager.start()
         if tab_order:
             # 按顺序插入到 parent temp_tab_list 中
             self.parent.temp_tab_list.append((tab_order, self.tab, self.title))
@@ -162,11 +179,10 @@ class TabUI:
         method_display_layout.setStretch(0, 4)
         method_display_layout.setStretch(1, 1)
 
-    def set_up_param_edit_area(self, tab: QWidget, layout: QVBoxLayout):
+    def set_up_param_edit_area(self, parent: QSplitter):
         """发送参数编辑区，作为一个tab区，第一个tab为args类型，第二个tab为json类型"""
-        self.param_edit_tab_widget = ParamTabWidget(tab)
+        self.param_edit_tab_widget = ParamTabWidget(parent)
         self.param_edit_tab_widget.setObjectName("param_edit_tab_widget")
-        layout.addWidget(self.param_edit_tab_widget)
         # 第一个tab，args类型
         self.set_up_param_args_edit_tab(self.param_edit_tab_widget)
         # 第二个tab，json类型
@@ -176,14 +192,14 @@ class TabUI:
         # 当参数tab页切换时，触发保存
         self.param_edit_tab_widget.currentChanged.connect(self.save_param_type)
 
-    def set_up_result_display_area(self, tab: QWidget, layout: QVBoxLayout):
+    def set_up_result_display_area(self, parent: QSplitter):
         """返回结果展示区，包括耗时统计区，下拉框, 结果打印区"""
-        result_display_widget = QWidget(tab)
+        result_display_widget = QWidget(parent)
         result_display_widget.setObjectName("result_display_widget")
-        layout.addWidget(result_display_widget)
         # 布局
         result_display_layout = QVBoxLayout(result_display_widget)
         result_display_layout.setObjectName("result_display_layout")
+        result_display_layout.setSpacing(0)
         result_display_layout.setContentsMargins(0, 0, 0, 0)
         # 耗时统计,返回结果展示样式选择区
         self.set_up_result_count(result_display_widget, result_display_layout)
@@ -207,6 +223,8 @@ class TabUI:
         # 布局
         args_edit_layout = QVBoxLayout(self.args_edit_tab)
         args_edit_layout.setObjectName("args_edit_layout")
+        args_edit_layout.setSpacing(0)
+        args_edit_layout.setContentsMargins(0, 0, 0, 0)
         # 表格区
         self.table_widget = ParamTableWidget(self)
         self.table_widget.setObjectName("table_widget")
@@ -225,6 +243,8 @@ class TabUI:
         # 布局
         json_edit_layout = QVBoxLayout(self.json_edit_tab)
         json_edit_layout.setObjectName("json_edit_layout")
+        json_edit_layout.setSpacing(0)
+        json_edit_layout.setContentsMargins(0, 0, 0, 0)
         # 文本编辑区
         self.json_edit_area = QPlainTextEdit(self.json_edit_tab)
         self.json_edit_area.setObjectName("json_edit_area")
@@ -240,6 +260,8 @@ class TabUI:
         # 表格布局
         result_count_layout = QGridLayout(result_count_widget)
         result_count_layout.setObjectName("result_count_layout")
+        result_count_layout.setSpacing(0)
+        result_count_layout.setContentsMargins(0, 0, 0, 0)
         # 表格使用第一行
         result_display_widget = QWidget(result_count_widget)
         result_count_layout.addWidget(result_display_widget, 0, 0, 1, 1)
@@ -247,6 +269,8 @@ class TabUI:
         # result_display_label
         result_display_label = set_up_label(result_display_widget, RESULT_DISPLAY, "result_display_label")
         result_display_layout.addWidget(result_display_label)
+        result_display_layout.setSpacing(0)
+        result_display_layout.setContentsMargins(0, 0, 0, 0)
         # combo box
         self.result_display_combo_box = QComboBox(result_display_widget)
         self.result_display_combo_box.setObjectName("result_display_combo_box")
@@ -256,12 +280,24 @@ class TabUI:
         self.result_display_combo_box.currentIndexChanged.connect(lambda: self.combo_box_change_func())
         result_display_layout.addWidget(self.result_display_combo_box)
         # 时间统计
-        self.request_time_label = set_up_label(result_count_widget, REQUEST_TIME, "request_time_label")
-        result_count_layout.addWidget(self.request_time_label, 0, 1, 1, 1)
-        self.response_time_label = set_up_label(result_count_widget, RESPONSE_TIME, "response_time_label")
-        result_count_layout.addWidget(self.response_time_label, 0, 2, 1, 1)
-        self.result_count_label = set_up_label(result_count_widget, COST_TIME, "result_count_label")
-        result_count_layout.addWidget(self.result_count_label, 0, 3, 1, 1)
+        request_time_widget = QWidget(result_count_widget)
+        request_time_layout = QFormLayout(request_time_widget)
+        request_time_label = set_up_label(request_time_widget, REQUEST_TIME, "request_time_label")
+        self.request_time_label_value = set_up_label(request_time_widget, "", "request_time_label_value")
+        request_time_layout.addRow(request_time_label, self.request_time_label_value)
+        result_count_layout.addWidget(request_time_widget, 0, 1, 1, 1)
+        response_time_widget = QWidget(result_count_widget)
+        response_time_layout = QFormLayout(response_time_widget)
+        response_time_label = set_up_label(result_count_widget, RESPONSE_TIME, "response_time_label")
+        self.response_time_label_value = set_up_label(result_count_widget, "", "response_time_label_value")
+        response_time_layout.addRow(response_time_label, self.response_time_label_value)
+        result_count_layout.addWidget(response_time_widget, 0, 2, 1, 1)
+        result_cost_widget = QWidget(result_count_widget)
+        result_cost_layout = QFormLayout(result_cost_widget)
+        result_count_label = set_up_label(result_count_widget, COST_TIME, "result_count_label")
+        self.result_count_label_value = set_up_label(result_count_widget, "", "result_count_label_value")
+        result_cost_layout.addRow(result_count_label, self.result_count_label_value)
+        result_count_layout.addWidget(result_cost_widget, 0, 3, 1, 1)
 
     def set_up_result_browser(self, parent: QWidget, layout: QVBoxLayout):
         """返回结果展示区"""
@@ -287,12 +323,10 @@ class TabUI:
         """发送请求"""
         # 点击发送后，首先将按钮置为不可用，文案显示：发送中
         self.disable_send_button()
-        self.request_time_label.setText(f"请求时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        self.request_time_label_value.setText(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         # 清空结果区
         self.result_browser.clear()
         self.rpc_result = ""
-        self.response_time_label.setText("响应时间：")
-        self.result_count_label.setText('接口耗时：')
         method = self.method_dict.get("method_name")
         request_param = self.get_param()
         if request_param:
@@ -300,12 +334,14 @@ class TabUI:
         else:
             invoke_method = f'{self.service_path}.{method}()'
         # 异步发送请求
-        AsyncSendRequestManager(self.request_fail, self.request_success, self.result_browser, self.window,
-                                REQUEST_FAIL, invoke_method, *list(self.conn_dict.values())[2:]).start()
+        self.request_manager = AsyncSendRequestManager(self.request_fail, self.request_success,
+                                                       self.result_browser, self.window, REQUEST_FAIL,
+                                                       invoke_method, *list(self.conn_dict.values())[2:])
+        self.request_manager.start()
 
     def request_success(self, result):
         self.parse_result(result)
-        self.response_time_label.setText(f"响应时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        self.response_time_label_value.setText(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         # 恢复发送按钮
         self.enable_send_button()
         # 保存结果信息
@@ -335,7 +371,7 @@ class TabUI:
         # 如果接口响应正常，再解析结果数据
         if len(result_list) == 3:
             time_count = result_list[2].lstrip('elapsed: ').rstrip('.')
-            self.result_count_label.setText(f'接口耗时：{time_count}')
+            self.result_count_label_value.setText(time_count)
             self.rpc_result = result_list[1].lstrip('result: ')
         elif len(result_list) == 2:
             # 如果分割完只有两个元素，第二个为异常语句
@@ -405,11 +441,11 @@ class TabUI:
         # combo box
         self.result_display_combo_box.setCurrentIndex(tab_obj.result_display)
         # 请求时间
-        self.request_time_label.setText(tab_obj.request_time)
+        self.request_time_label_value.setText(tab_obj.request_time)
         # 响应时间
-        self.response_time_label.setText(tab_obj.response_time)
+        self.response_time_label_value.setText(tab_obj.response_time)
         # 耗时
-        self.result_count_label.setText(tab_obj.method_cost)
+        self.result_count_label_value.setText(tab_obj.method_cost)
         # 结果
         self.rpc_result = tab_obj.result
         self.display_result_browser()
@@ -448,9 +484,9 @@ class TabUI:
     def save_result(self):
         """保存和结果相关内容，请求时间，响应时间，耗时，结果"""
         if not self.filling_flag:
-            self.tab_obj_dict['request_time'] = self.request_time_label.text()
-            self.tab_obj_dict['response_time'] = self.response_time_label.text()
-            self.tab_obj_dict['method_cost'] = self.result_count_label.text()
+            self.tab_obj_dict['request_time'] = self.request_time_label_value.text()
+            self.tab_obj_dict['response_time'] = self.response_time_label_value.text()
+            self.tab_obj_dict['method_cost'] = self.result_count_label_value.text()
             self.tab_obj_dict['result'] = self.rpc_result
             self.save_tab_change()
 
