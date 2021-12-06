@@ -67,8 +67,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tab_layout.addWidget(self.tab_widget)
         self.tab_layout.setSpacing(0)
         self.tab_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_splitter.setStretchFactor(0, 2)
-        self.main_splitter.setStretchFactor(1, 5)
         # 菜单栏
         self.menubar = QtWidgets.QMenuBar(self)
         self.menubar.setObjectName("menubar")
@@ -103,13 +101,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_widget.setLayout(self.main_layout)
         self.setCentralWidget(self.main_widget)
-        self.horizontalLayout.setStretch(0, 3)
-        self.horizontalLayout.setStretch(1, 7)
+        self.main_splitter.setStretchFactor(0, 2)
+        self.main_splitter.setStretchFactor(1, 9)
         # 填充菜单栏
         fill_menu_bar(self)
         # 填充工具栏
         fill_tool_bar(self)
-        # self.toolBar.setIconSize(QSize(50, 40))
         # 设置名称显示在图标下面（默认本来是只显示图标）
         self.toolBar.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
 

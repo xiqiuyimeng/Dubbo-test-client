@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import json
 from datetime import datetime
 
 from PyQt5.QtCore import Qt
@@ -88,9 +87,14 @@ class TabUI:
         self.sending_flag = False
         self.read_tab_manager = ...
         self.request_manager = ...
+        self.display_manager = ...
+        self.result_display_widget = ...
+        self.result_display_layout = ...
+        self.need_fill = True
 
     def set_up_tab(self, tab_order=None):
         self.tab = QWidget()
+        self.tab.setProperty("tab_ui", self)
         # 将tab_id 写入到所属tab页中
         self.tab.setProperty("tab_id", self.tab_id)
         # 将气泡提示需要的文案提前放入tab属性中
@@ -124,17 +128,20 @@ class TabUI:
         param_result_splitter.setStretchFactor(0, 3)
         param_result_splitter.setStretchFactor(1, 5)
 
-        # 处理tab obj
-        self.read_tab_manager = AsyncReadTabObjManager(self.tab_id, self.set_up_tab_obj,
-                                                       self.tab, self.window, OPEN_METHOD_MENU)
-        self.read_tab_manager.start()
-        if tab_order:
+        if tab_order is not None:
             # 按顺序插入到 parent temp_tab_list 中
             self.parent.temp_tab_list.append((tab_order, self.tab, self.title))
         else:
             # 添加tab，设置tab标题
             self.parent.addTab(self.tab, self.title)
             self.parent.setCurrentWidget(self.tab)
+
+    def read_saved_tab(self):
+        if self.need_fill:
+            # 处理tab obj
+            self.read_tab_manager = AsyncReadTabObjManager(self.tab_id, self.set_up_tab_obj,
+                                                           self.tab, self.window, OPEN_METHOD_MENU)
+            self.read_tab_manager.start()
 
     def get_param_list(self):
         return self.method_dict.get("param_type").split(",") \
@@ -194,17 +201,17 @@ class TabUI:
 
     def set_up_result_display_area(self, parent: QSplitter):
         """返回结果展示区，包括耗时统计区，下拉框, 结果打印区"""
-        result_display_widget = QWidget(parent)
-        result_display_widget.setObjectName("result_display_widget")
+        self.result_display_widget = QWidget(parent)
+        self.result_display_widget.setObjectName("result_display_widget")
         # 布局
-        result_display_layout = QVBoxLayout(result_display_widget)
-        result_display_layout.setObjectName("result_display_layout")
-        result_display_layout.setSpacing(0)
-        result_display_layout.setContentsMargins(0, 0, 0, 0)
+        self.result_display_layout = QVBoxLayout(self.result_display_widget)
+        self.result_display_layout.setObjectName("result_display_layout")
+        self.result_display_layout.setSpacing(0)
+        self.result_display_layout.setContentsMargins(0, 0, 0, 0)
         # 耗时统计,返回结果展示样式选择区
-        self.set_up_result_count(result_display_widget, result_display_layout)
+        self.set_up_result_count()
         # 结果展示区
-        self.set_up_result_browser(result_display_widget, result_display_layout)
+        self.set_up_result_browser()
 
     def set_up_send_button(self, parent: QWidget, layout: QVBoxLayout):
         """发送按钮区"""
@@ -252,11 +259,11 @@ class TabUI:
         # json参数区输入时，触发保存
         self.json_edit_area.textChanged.connect(self.save_json_area)
 
-    def set_up_result_count(self, parent: QWidget, layout: QVBoxLayout):
+    def set_up_result_count(self):
         """统计耗时，下拉框决定返回结果展示样式"""
-        result_count_widget = QWidget(parent)
+        result_count_widget = QWidget(self.result_display_widget)
         result_count_widget.setObjectName("result_count_widget")
-        layout.addWidget(result_count_widget)
+        self.result_display_layout.addWidget(result_count_widget)
         # 表格布局
         result_count_layout = QGridLayout(result_count_widget)
         result_count_layout.setObjectName("result_count_layout")
@@ -299,11 +306,11 @@ class TabUI:
         result_cost_layout.addRow(result_count_label, self.result_count_label_value)
         result_count_layout.addWidget(result_cost_widget, 0, 3, 1, 1)
 
-    def set_up_result_browser(self, parent: QWidget, layout: QVBoxLayout):
+    def set_up_result_browser(self):
         """返回结果展示区"""
-        self.result_browser = MyTextBrowser(parent)
+        self.result_browser = MyTextBrowser(self.result_display_widget)
         self.result_browser.setObjectName("result_browser")
-        layout.addWidget(self.result_browser)
+        self.result_display_layout.addWidget(self.result_browser)
 
     def get_param(self):
         """获取入参"""
@@ -335,7 +342,8 @@ class TabUI:
             invoke_method = f'{self.service_path}.{method}()'
         # 异步发送请求
         self.request_manager = AsyncSendRequestManager(self.request_fail, self.request_success,
-                                                       self.result_browser, self.window, REQUEST_FAIL,
+                                                       self.result_browser, self.result_display_layout,
+                                                       self.window, REQUEST_FAIL,
                                                        invoke_method, *list(self.conn_dict.values())[2:])
         self.request_manager.start()
 
@@ -393,16 +401,11 @@ class TabUI:
                 self.display_result_browser()
 
     def display_result_browser(self):
-        if self.result_display_combo_box.currentText() == RESULT_DISPLAY_JSON:
-            # 如果解析出错，应该用原生展示
-            try:
-                json_format_result = json.dumps(json.loads(self.rpc_result), indent=4, ensure_ascii=False)
-                self.result_browser.set_text(json_format_result)
-            except:
-                self.result_browser.set_text(self.rpc_result)
-                self.result_display_combo_box.setCurrentIndex(0)
-        else:
-            self.result_browser.set_text(self.rpc_result)
+        # 这里需要开线程，因为返回结果过大时，时间消耗严重
+        self.display_manager = AsyncDisplayTextBrowserManager(self.result_display_combo_box, self.rpc_result,
+                                                              self.result_browser, self.result_display_layout,
+                                                              self.window, "111")
+        self.display_manager.start()
 
     def set_up_tab_obj(self, tab_obj):
         """如果之前没有保存过，初始化一个新的tab_obj_dict，按当前tab页的属性进行构造"""
@@ -423,6 +426,7 @@ class TabUI:
             self.tab_obj_dict['param_args_dict'] = dict()
             self.tab_obj_dict['param_desc_dict'] = dict()
             self.tab_obj_dict['result_display'] = self.result_display_combo_box.currentIndex()
+        self.need_fill = False
 
     def fill_data(self, tab_obj):
         self.filling_flag = True

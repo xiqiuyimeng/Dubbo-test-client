@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
+import json
+
 from PyQt5.QtCore import pyqtSignal
 
+from src.constant.tab_constant import RESULT_DISPLAY_JSON
 from src.function.db.tab_sqlite import TabObj, TabSqlite
 from src.ui.async_func.async_operate_abc import ConnWorker, LoadingMaskThreadWorkManager, ThreadWorkerABC, \
-    ThreadWorkManagerABC
+    ThreadWorkManagerABC, LoadingMaskWidgetThreadWorkManager
 
 _author_ = 'luwt'
 _date_ = '2021/11/22 16:52'
@@ -59,17 +62,42 @@ class SaveTabObjWorker(ThreadWorkerABC):
                 self.success_signal.emit(tab_obj_id)
 
 
+class TextBrowserWorker(ThreadWorkerABC):
+
+    success_signal = pyqtSignal()
+
+    def __init__(self, result_display_combo_box, text, result_browser):
+        super().__init__()
+        self.result_display_combo_box = result_display_combo_box
+        self.text = text
+        self.result_browser = result_browser
+
+    def do_run(self):
+        # 尝试json解析文本
+        if self.result_display_combo_box.currentText() == RESULT_DISPLAY_JSON:
+            # 如果解析出错，应该用原生展示
+            try:
+                json_format_result = json.dumps(json.loads(self.text), indent=4, ensure_ascii=False)
+                self.result_browser.set_text(json_format_result)
+            except:
+                self.result_browser.set_text(self.text)
+                self.result_display_combo_box.setCurrentIndex(0)
+        else:
+            self.result_browser.set_text(self.text)
+        self.success_signal.emit()
+
+
 # ----------------------- thread worker manager -----------------------
 
 
 class AsyncSendRequestManager(LoadingMaskThreadWorkManager):
 
-    def __init__(self, fail_callback, callback, masked_widget, window, title, method, *args):
+    def __init__(self, fail_callback, callback, masked_widget, masked_layout, window, title, method, *args):
         self.method = method
         self.args = args
         self.fail_callback = fail_callback
         self.callback = callback
-        super().__init__(masked_widget, window, title)
+        super().__init__(masked_widget, masked_layout, window, title)
 
     def get_worker(self):
         return SendRequestWorker(self.method, *self.args)
@@ -81,7 +109,7 @@ class AsyncSendRequestManager(LoadingMaskThreadWorkManager):
         self.fail_callback()
 
 
-class AsyncReadTabObjManager(LoadingMaskThreadWorkManager):
+class AsyncReadTabObjManager(LoadingMaskWidgetThreadWorkManager):
 
     def __init__(self, tab_id, callback, *args):
         self.tab_id = tab_id
@@ -116,3 +144,14 @@ class AsyncSaveTabObjManager(ThreadWorkManagerABC):
     def success_post_process(self, *args):
         self.callback(*args)
 
+
+class AsyncDisplayTextBrowserManager(LoadingMaskThreadWorkManager):
+
+    def __init__(self, result_display_combo_box, text, result_browser, *args):
+        self.result_display_combo_box = result_display_combo_box
+        self.text = text
+        self.result_browser = result_browser
+        super().__init__(result_browser, *args)
+
+    def get_worker(self):
+        return TextBrowserWorker(self.result_display_combo_box, self.text, self.result_browser)

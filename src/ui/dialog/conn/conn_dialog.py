@@ -216,7 +216,7 @@ class ConnDialog(QDialog):
 
     def test_connection(self):
         conn_info = self.get_input_connection()
-        self.async_test_conn = AsyncTestConnManager(self, conn_info)
+        self.async_test_conn = AsyncTestConnManager(self, self, conn_info)
         self.async_test_conn.start()
 
     def get_input_connection(self):
@@ -227,11 +227,14 @@ class ConnDialog(QDialog):
         if self.dialog_title == EDIT_CONN_MENU:
             # 比较下是否有改动，如果有修改再更新库
             if set(new_conn[1:]) - set(self.connection[1:]):
-                self.edit_conn_worker = AsyncEditConnDBManager(new_conn, self.tree_item, self, self.dialog_title,
-                                                               SAVE_CONN_SUCCESS_PROMPT).start()
+                self.edit_conn_worker = AsyncEditConnDBManager(new_conn, self.tree_item, self,
+                                                               SAVE_CONN_SUCCESS_PROMPT, self, self.dialog_title)
+                self.edit_conn_worker.start()
         elif self.dialog_title == ADD_CONN_MENU:
-            self.add_conn_worker = AsyncAddConnDBManager(new_conn, self.tree_widget, add_conn_tree_item, self,
-                                                         self.dialog_title, SAVE_CONN_SUCCESS_PROMPT).start()
+            self.add_conn_worker = AsyncAddConnDBManager(new_conn, self.tree_widget, add_conn_tree_item,
+                                                         self, SAVE_CONN_SUCCESS_PROMPT,
+                                                         self, self.dialog_title)
+            self.add_conn_worker.start()
 
     def closeEvent(self, a0: QtGui.QCloseEvent):
         self.async_check_name.worker_quit()

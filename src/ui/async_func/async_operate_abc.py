@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QTreeWidgetItem
 
 from src.function.dubbo.dubbo_client import DubboClient
 from src.ui.box.message_box import pop_fail
-from src.ui.loading_mask.loading_widget import LoadingMask
+from src.ui.loading_mask.loading_widget import LoadingMask, LoadingMaskWidget
 
 _author_ = 'luwt'
 _date_ = '2021/11/21 15:44'
@@ -101,7 +101,7 @@ class ThreadWorkManagerABC(QObject):
     def fail_post_process(self): ...
 
 
-class LoadingMaskThreadWorkManager(ThreadWorkManagerABC):
+class LoadingMaskThreadWorkManagerABC(ThreadWorkManagerABC):
 
     def __init__(self, masked_widget, *args):
         self.movie = QMovie(":/gif/loading.gif")
@@ -109,12 +109,33 @@ class LoadingMaskThreadWorkManager(ThreadWorkManagerABC):
         self.loading_mask: LoadingMask = ...
         super().__init__(*args)
 
+    def get_loading_mask(self): ...
+
     def pre_process(self):
-        self.loading_mask = LoadingMask(self.masked_widget, self.movie)
-        self.loading_mask.show()
+        self.loading_mask = self.get_loading_mask()
+        self.loading_mask.start()
 
     def post_process(self):
-        self.loading_mask.close()
+        self.loading_mask.stop()
+
+
+class LoadingMaskThreadWorkManager(LoadingMaskThreadWorkManagerABC):
+
+    def __init__(self, masked_widget, masked_layout, *args):
+        self.masked_layout = masked_layout
+        super().__init__(masked_widget, *args)
+
+    def get_loading_mask(self):
+        return LoadingMask(self.masked_widget, self.masked_layout, self.movie)
+
+
+class LoadingMaskWidgetThreadWorkManager(LoadingMaskThreadWorkManagerABC):
+
+    def __init__(self, *args):
+        super().__init__(*args)
+
+    def get_loading_mask(self):
+        return LoadingMaskWidget(self.masked_widget, self.movie)
 
 
 class IconMovieThreadWorkManager(ThreadWorkManagerABC):

@@ -6,8 +6,8 @@ from PyQt5.QtCore import pyqtSignal
 from src.function.db.conn_sqlite import ConnSqlite, Connection
 from src.function.db.opened_item_sqlite import OpenedItem, OpenedItemSqlite
 from src.function.db.tab_sqlite import TabSqlite
-from src.ui.async_func.async_operate_abc import LoadingMaskThreadWorkManager, \
-    IconMovieThreadWorkManager, ThreadWorkManagerABC, ThreadWorkerABC
+from src.ui.async_func.async_operate_abc import IconMovieThreadWorkManager, ThreadWorkManagerABC, ThreadWorkerABC, \
+    LoadingMaskWidgetThreadWorkManager
 from src.ui.box.message_box import pop_ok
 
 _author_ = 'luwt'
@@ -163,10 +163,10 @@ class UpdateExpandedWorker(ThreadWorkerABC):
 # ----------------------- thread worker manager -----------------------
 
 
-class ConnDBABCManager(LoadingMaskThreadWorkManager):
+class ConnDBABCManager(LoadingMaskWidgetThreadWorkManager):
 
-    def __init__(self, window, title, prompt):
-        super().__init__(window, window, title)
+    def __init__(self, masked_widget, prompt, *args):
+        super().__init__(masked_widget, *args)
         self.prompt = prompt
 
     def post_process(self):

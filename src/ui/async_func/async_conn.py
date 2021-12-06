@@ -5,8 +5,8 @@ from src.constant.main_constant import TEST_CONN_MENU, OPEN_CONN_MENU, OPEN_SERV
     OPEN_METHOD_MENU, SUCCESS_TEST_PROMPT
 from src.function.db.conn_sqlite import Connection
 from src.function.db.opened_item_sqlite import OpenedItem, OpenedItemSqlite
-from src.ui.async_func.async_operate_abc import LoadingMaskThreadWorkManager, \
-    IconMovieThreadWorkManager, ThreadWorkerABC, ConnWorker
+from src.ui.async_func.async_operate_abc import IconMovieThreadWorkManager, ThreadWorkerABC, ConnWorker, \
+    LoadingMaskWidgetThreadWorkManager
 from src.ui.box.message_box import pop_ok
 
 _author_ = 'luwt'
@@ -110,11 +110,11 @@ class OpenMethodWorker(ThreadWorkerABC):
 # ----------------------- 测试连接相关 -----------------------
 
 
-class AsyncTestConnManager(LoadingMaskThreadWorkManager):
+class AsyncTestConnManager(LoadingMaskWidgetThreadWorkManager):
 
-    def __init__(self, window, conn_info: Connection):
+    def __init__(self, masked_widget, window, conn_info: Connection):
         self.conn_info = conn_info
-        super().__init__(window, window, TEST_CONN_MENU)
+        super().__init__(masked_widget, window, TEST_CONN_MENU)
 
     def get_worker(self):
         return TestConnWorker(*self.conn_info[2:])

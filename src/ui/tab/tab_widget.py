@@ -28,14 +28,23 @@ class MyTabWidget(QTabWidget):
                                                          SAVE_TAB_DATA)
         self.async_save_manager.start()
 
+    def read_saved_tab(self, idx):
+        """当前页变化时，调用tab的read_saved_tab方法"""
+        tab = self.widget(idx)
+        tab_ui = tab.property("tab_ui")
+        tab_ui.read_saved_tab()
+
     def insert_tab_by_order(self):
         # 按order排序
         self.temp_tab_list.sort(key=lambda x: x[0])
         [self.addTab(tab[1], tab[2]) for tab in self.temp_tab_list]
-        if self.current:
+        if self.current is not None:
             self.setCurrentIndex(self.current)
+            self.read_saved_tab(self.current)
         del self.temp_tab_list
         del self.current
+        # 在处理完后，将信号连上
+        self.currentChanged.connect(self.read_saved_tab)
 
     def close(self):
         self.async_save_manager.worker_quit()
