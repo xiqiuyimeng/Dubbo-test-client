@@ -30,9 +30,10 @@ class MyTabWidget(QTabWidget):
 
     def read_saved_tab(self, idx):
         """当前页变化时，调用tab的read_saved_tab方法"""
-        tab = self.widget(idx)
-        tab_ui = tab.property("tab_ui")
-        tab_ui.read_saved_tab()
+        if idx >= 0:
+            tab = self.widget(idx)
+            tab_ui = tab.property("tab_ui")
+            tab_ui.read_saved_tab()
 
     def insert_tab_by_order(self):
         # 按order排序
