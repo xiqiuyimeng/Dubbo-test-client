@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QPlainTextEdit, QLabel, QTabWidget, QWidget, QVBoxLa
 from src.constant.main_constant import OPEN_METHOD_MENU
 from src.constant.tab_constant import SEND_BUTTON, SENDING_BUTTON, ARGS_TAB_TITLE, JSON_TAB_TITLE, \
     RESULT_DISPLAY, REQUEST_TIME, RESPONSE_TIME, COST_TIME, REQUEST_FAIL, RESULT_DISPLAY_RAW, RESULT_DISPLAY_JSON, \
-    AUTO_SAVE_CHANGE
+    AUTO_SAVE_CHANGE, LOAD_RESULT_TITLE
 from src.function.db.tab_sqlite import TabObj
 from src.ui.async_func.async_tab import AsyncSendRequestManager, AsyncReadTabObjManager, AsyncDisplayTextBrowserManager
 from src.ui.func.common import set_up_label
@@ -404,7 +404,7 @@ class TabUI:
         # 这里需要开线程，因为返回结果过大时，时间消耗严重
         self.display_manager = AsyncDisplayTextBrowserManager(self.result_display_combo_box, self.rpc_result,
                                                               self.result_browser, self.result_display_layout,
-                                                              self.window, "111")
+                                                              self.window, LOAD_RESULT_TITLE)
         self.display_manager.start()
 
     def set_up_tab_obj(self, tab_obj):
@@ -500,8 +500,7 @@ class TabUI:
         self.tab_obj_dict['param_desc_dict'] = str(self.tab_obj_dict.get('param_desc_dict'))
         for field in TabObj._fields:
             self.tab_obj_dict[field] = self.tab_obj_dict.get(field)
-        tab_obj = TabObj(**self.tab_obj_dict)
-        self.parent.async_save_manager.save_tab_obj(tab_obj, self.save_post_process)
+        self.parent.async_save_manager.save_tab_obj(self.tab_obj_dict, self.save_post_process)
 
     def save_post_process(self, tab_obj_id):
         if tab_obj_id > 0:

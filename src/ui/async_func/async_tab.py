@@ -51,13 +51,18 @@ class SaveTabObjWorker(ThreadWorkerABC):
 
     def do_run(self):
         while True:
-            stop_flag, tab_obj = self.queue.get()
+            stop_flag, tab_dict = self.queue.get()
             if stop_flag:
                 break
-            if tab_obj.id:
+            # 首先查询tab_id是否已存在，如果存在，则为更新操作
+            tab = TabSqlite().select_by_tab_id(tab_dict.get("tab_id"))
+            if tab.id:
+                tab_dict["id"] = tab.id
+                tab_obj = TabObj(**tab_dict)
                 TabSqlite().update_selective(tab_obj)
                 self.success_signal.emit(-1)
             else:
+                tab_obj = TabObj(**tab_dict)
                 tab_obj_id = TabSqlite().insert(tab_obj)
                 self.success_signal.emit(tab_obj_id)
 
@@ -133,9 +138,9 @@ class AsyncSaveTabObjManager(ThreadWorkManagerABC):
     def get_worker(self):
         return SaveTabObjWorker(self.queue)
 
-    def save_tab_obj(self, tab_obj, callback):
+    def save_tab_obj(self, tab_dict, callback):
         self.callback = callback
-        self.queue.put((False, tab_obj))
+        self.queue.put((False, tab_dict))
 
     def worker_quit(self):
         self.queue.put((True, None))
