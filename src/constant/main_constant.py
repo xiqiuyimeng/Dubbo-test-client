@@ -17,6 +17,8 @@ ABOUT_MENU = '关于'
 OPEN_CONN_MENU = '打开连接'
 # 取消
 CANCEL_WORK = "取消"
+# 删除连接下的方法测试记录
+DEL_CONN_HISTORY_MENU = "删除方法测试记录"
 # 关闭连接
 CLOSE_CONN_MENU = '关闭连接'
 # 测试连接
@@ -31,10 +33,12 @@ DEL_CONN_MENU = '删除连接'
 """关于服务接口的右键菜单"""
 OPEN_SERVICE_MENU = "打开服务"
 CLOSE_SERVICE_MENU = "关闭服务"
+DEL_SERVICE_HISTORY_MENU = "删除方法测试记录"
 
 """关于方法的右键菜单"""
 OPEN_METHOD_MENU = "打开方法详情"
 CLOSE_METHOD_MENU = "关闭方法详情"
+DEL_METHOD_HISTORY_MENU = "删除方法测试记录"
 
 # 按钮文案
 OK_BUTTON = "确定"
@@ -52,3 +56,8 @@ DEL_CONN_PROMPT = "删除连接需要先关闭连接，是否继续？"
 SAVE_TAB_DATA = "保存当前页操作记录"
 # 同步节点展开状态
 SYNC_ITEM_EXPANDED = "同步节点展开状态"
+
+# 删除方法测试记录报错时弹框标题
+DEL_CONN_HISTORY_TITLE = "删除连接下方法测试记录"
+DEL_SERVICE_HISTORY_TITLE = "删除连接下方法测试记录"
+DEL_METHOD_HISTORY_TITLE = "删除连接下方法测试记录"

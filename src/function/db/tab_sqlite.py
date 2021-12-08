@@ -39,6 +39,9 @@ tab_sql = {
     'select_insert_id': 'select id from tab order by id desc limit 1',
     'select_by_tab_id': 'select * from tab where tab_id = ?',
     'delete_by_conn_id': 'delete from tab where conn_id = ?',
+    'select_by_conn_id': 'select * from tab where conn_id = ?',
+    'select_by_tab_id_like': 'select * from tab where tab_id like ?',
+    'delete_by_tab_ids': 'delete from tab where tab_id in ',
 }
 
 
@@ -70,3 +73,21 @@ class TabSqlite(SqliteBasic):
         sql = tab_sql.get('delete_by_conn_id')
         self.cursor.execute(sql, (conn_id,))
         self.conn.commit()
+
+    def select_tab_ids_by_conn_id(self, con_id):
+        sql = tab_sql.get('select_by_conn_id')
+        self.cursor.execute(sql, (con_id,))
+        data = self.cursor.fetchall()
+        return tuple(map(lambda x: x[2], data))
+
+    def select_tab_ids_like(self, like_tab_id):
+        sql = tab_sql.get('select_by_tab_id_like')
+        self.cursor.execute(sql, (f'{like_tab_id}%',))
+        data = self.cursor.fetchall()
+        return tuple(map(lambda x: x[2], data))
+
+    def delete_by_tab_ids(self, tab_ids):
+        sql = f"{tab_sql.get('delete_by_tab_ids')} ({','.join('?' * len(tab_ids))})"
+        self.cursor.execute(sql, tab_ids)
+        self.conn.commit()
+

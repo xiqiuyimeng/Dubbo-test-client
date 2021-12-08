@@ -5,10 +5,14 @@ from PyQt5.QtGui import QIcon
 
 from src.constant.main_constant import CLOSE_CONN_MENU, OPEN_CONN_MENU, TEST_CONN_MENU, ADD_CONN_MENU, EDIT_CONN_MENU, \
     DEL_CONN_MENU, OPEN_SERVICE_MENU, CLOSE_SERVICE_MENU, EDIT_CONN_PROMPT, CLOSE_METHOD_MENU, OPEN_METHOD_MENU, \
-    DEL_CONN_PROMPT, CANCEL_WORK
+    DEL_CONN_PROMPT, CANCEL_WORK, DEL_CONN_HISTORY_MENU, DEL_SERVICE_HISTORY_MENU, DEL_METHOD_HISTORY_MENU, \
+    DEL_CONN_HISTORY_TITLE, DEL_SERVICE_HISTORY_TITLE, DEL_METHOD_HISTORY_TITLE
 from src.function.db.conn_sqlite import Connection
-from src.ui.async_func.async_conn import AsyncSimpleTestConnManager, AsyncOpenConnManager, AsyncOpenServiceManager, AsyncOpenMethodManager
+from src.ui.async_func.async_conn import AsyncSimpleTestConnManager, AsyncOpenConnManager, AsyncOpenServiceManager,\
+    AsyncOpenMethodManager
 from src.ui.async_func.async_conn_db import AsyncCloseConnDBManager, AsyncDelConnDBManager, AsyncCloseDelConnDBManager
+from src.ui.async_func.async_tab import AsyncDelConnHistoryManager, AsyncDelServiceHistoryManager, \
+    AsyncDelMethodHistoryManager
 from src.ui.box.message_box import pop_question
 from src.ui.tab.tab_ui import TabUI
 from src.ui.tree_item.my_tree_item import MyTreeWidgetItem
@@ -102,12 +106,16 @@ class Context:
     def handle_menu_func(self, item, func, window):
         return self.tree_node.handle_menu_func(item, func, window)
 
+    def del_history(self, item, window):
+        return self.tree_node.del_history(item, window)
+
 
 class TreeNodeAbstract(ABC):
 
     def __init__(self):
         self.open_manager = ...
         self.close_manager = ...
+        self.del_history_manager = ...
 
     @abstractmethod
     def open_item(self, item, window): ...
@@ -126,6 +134,9 @@ class TreeNodeAbstract(ABC):
 
     @abstractmethod
     def handle_menu_func(self, item, func, window): ...
+
+    @abstractmethod
+    def del_history(self, item, window): ...
 
 
 class TreeNodeConn(TreeNodeAbstract):
@@ -189,6 +200,7 @@ class TreeNodeConn(TreeNodeAbstract):
         # 如果能取到正在测试的标识
         if item.text(3) and eval(item.text(3)):
             menu_names.append(CANCEL_WORK)
+        menu_names.append(DEL_CONN_HISTORY_MENU)
         menu_names.append(TEST_CONN_MENU)
         menu_names.append(ADD_CONN_MENU)
         menu_names.append(EDIT_CONN_MENU)
@@ -224,6 +236,15 @@ class TreeNodeConn(TreeNodeAbstract):
         # 删除连接
         elif func == DEL_CONN_MENU:
             self.del_conn(window, eval(item.text(2)).get("id"), item)
+        # 删除连接下的方法测试记录
+        elif func == DEL_CONN_HISTORY_MENU:
+            self.del_history(item, window)
+
+    def del_history(self, item, window):
+        self.del_history_manager = AsyncDelConnHistoryManager(eval(item.text(2)).get('id'),
+                                                              batch_del_history, item,
+                                                              window, DEL_CONN_HISTORY_TITLE)
+        self.del_history_manager.start()
 
     def edit_conn(self, window, item):
         """
@@ -261,7 +282,8 @@ class TreeNodeConn(TreeNodeAbstract):
                                                      item, window, DEL_CONN_MENU)
             self.del_manager.start()
 
-    def del_conn_item(self, item, tree_widget):
+    @staticmethod
+    def del_conn_item(item, tree_widget):
         tree_widget.takeTopLevelItem(tree_widget.indexOfTopLevelItem(item))
 
     def close_del_conn_item(self, item, tab_widget, tree_widget, tab_order):
@@ -330,6 +352,7 @@ class TreeNodeService(TreeNodeAbstract):
             menu_list.append(CLOSE_SERVICE_MENU)
         else:
             menu_list.append(OPEN_SERVICE_MENU)
+        menu_list.append(DEL_SERVICE_HISTORY_MENU)
         return menu_list
 
     def handle_menu_func(self, item, func, window):
@@ -345,6 +368,15 @@ class TreeNodeService(TreeNodeAbstract):
         # 关闭数据库
         elif func == CLOSE_SERVICE_MENU:
             self.close_item(item, window)
+        # 删除接口服务下方法的测试记录
+        elif func == DEL_SERVICE_HISTORY_MENU:
+            self.del_history(item, window)
+
+    def del_history(self, item, window):
+        conn_service_path = f'{eval(item.parent().text(2)).get("id")}-{item.text(0)}-'
+        self.del_history_manager = AsyncDelServiceHistoryManager(conn_service_path, batch_del_history,
+                                                                 item, window, DEL_SERVICE_HISTORY_TITLE)
+        self.del_history_manager.start()
 
 
 class TreeNodeMethod(TreeNodeAbstract):
@@ -358,36 +390,39 @@ class TreeNodeMethod(TreeNodeAbstract):
         :param item: 当前点击树节点元素
         :param window: 启动的主窗口界面对象
         """
-        conn_dict = eval(item.parent().parent().text(2))
-        service_path = item.parent().text(0)
-        method_name = item.text(0)
+        conn_dict, service_path, method_dict, method_name = self.get_conn_service_method(item)
         # 首先构造tab的id：conn_id + service + method_name
         tab_id = f'{conn_dict.get("id")}-{service_path}-{method_name}'
-        self.open_manager = AsyncOpenMethodManager(item, window, tab_id, item.text(1), self.open_item_ui)
-        self.open_manager.start()
-
-    def open_item_ui(self, item_order, item, window, tab_id):
-        if item_order >= 0:
-            window.tab_widget.setCurrentIndex(item_order)
+        # 首先检索当前是否已经打开，如果已经打开，置为当前项即可
+        tab_widget = get_tab(window.tab_widget, tab_id)
+        if tab_widget:
+            window.tab_widget.setCurrentWidget(tab_widget)
         else:
-            method_name = item.text(0)
-            service_path = item.parent().text(0)
-            method_dict = eval(item.text(2))
-            conn_dict = eval(item.parent().parent().text(2))
-            tab_ui = TabUI(window,
-                           method_name,
-                           service_path,
-                           method_dict,
-                           conn_dict,
-                           tab_id)
-            tab_ui.set_up_tab()
+            # 如果没有打开过，查询数据库，构建tab
+            self.open_manager = AsyncOpenMethodManager(item, window, tab_id, item.text(1), self.open_item_ui)
+            self.open_manager.start()
+
+    def open_item_ui(self, item, window, tab_id):
+        conn_dict, service_path, method_dict, method_name = self.get_conn_service_method(item)
+        tab_ui = TabUI(window,
+                       method_name,
+                       service_path,
+                       method_dict,
+                       conn_dict,
+                       tab_id)
+        tab_ui.set_up_tab()
+
+    @staticmethod
+    def get_conn_service_method(item):
+        conn_dict = eval(item.parent().parent().text(2))
+        service_path = item.parent().text(0)
+        method_dict = eval(item.text(2))
+        method_name = item.text(0)
+        return conn_dict, service_path, method_dict, method_name
 
     def reopen_item(self, item, children_data, item_dict, expanded=None, window=None):
+        conn_dict, service_path, method_dict, method_name = self.get_conn_service_method(item)
         opened_tab = children_data[0]
-        conn_dict = eval(item.parent().parent().text(2))
-        method_dict = eval(item.text(2))
-        service_path = item.parent().text(0)
-        method_name = item.text(0)
         tab_ui = TabUI(window,
                        method_name,
                        service_path,
@@ -409,7 +444,8 @@ class TreeNodeMethod(TreeNodeAbstract):
                                                      window, CLOSE_METHOD_MENU)
         self.close_manager.start()
 
-    def close_item_ui(self, tab_order, item, tab_widget):
+    @staticmethod
+    def close_item_ui(tab_order, item, tab_widget):
         if tab_order:
             # 关闭对应tab
             tab_widget.removeTab(tab_order[0])
@@ -420,7 +456,16 @@ class TreeNodeMethod(TreeNodeAbstract):
         :param item: 当前点击树节点元素
         :param window: 启动的主窗口界面对象
         """
-        return [OPEN_METHOD_MENU, CLOSE_METHOD_MENU]
+        menu_list = list()
+        conn_dict, service_path, method_dict, method_name = self.get_conn_service_method(item)
+        tab_id = f'{conn_dict.get("id")}-{service_path}-{method_name}'
+        tab_widget = get_tab(window.tab_widget, tab_id)
+        if tab_widget:
+            menu_list.append(CLOSE_METHOD_MENU)
+        else:
+            menu_list.append(OPEN_METHOD_MENU)
+        menu_list.append(DEL_METHOD_HISTORY_MENU)
+        return menu_list
 
     def handle_menu_func(self, item, func, window):
         """
@@ -435,3 +480,32 @@ class TreeNodeMethod(TreeNodeAbstract):
         # 关闭方法详情tab页
         elif func == CLOSE_METHOD_MENU:
             self.close_item(item, window)
+        # 删除方法的测试记录
+        elif func == DEL_METHOD_HISTORY_MENU:
+            self.del_history(item, window)
+
+    def del_history(self, item, window):
+        conn_dict, service_path, method_dict, method_name = self.get_conn_service_method(item)
+        # 首先构造tab的id：conn_id + service + method_name
+        tab_id = f'{conn_dict.get("id")}-{service_path}-{method_name}'
+        self.del_history_manager = AsyncDelMethodHistoryManager(tab_id, reset_tab, item,
+                                                                window, DEL_METHOD_HISTORY_TITLE)
+        self.del_history_manager.start()
+
+
+def get_tab(tab_widget, tab_id):
+    for i in range(tab_widget.count()):
+        if tab_widget.widget(i).property("tab_id") == tab_id:
+            return tab_widget.widget(i)
+
+
+def reset_tab(tab_widget, tab_id):
+    tab = get_tab(tab_widget, tab_id)
+    if tab:
+        tab_ui = tab.property("tab_ui")
+        tab_ui.reset_tab_data()
+
+
+def batch_del_history(tab_ids, window):
+    for tab_id in tab_ids:
+        reset_tab(window.tab_widget, tab_id)

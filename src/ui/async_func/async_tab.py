@@ -6,7 +6,7 @@ from PyQt5.QtCore import pyqtSignal
 from src.constant.tab_constant import RESULT_DISPLAY_JSON
 from src.function.db.tab_sqlite import TabObj, TabSqlite
 from src.ui.async_func.async_operate_abc import ConnWorker, LoadingMaskThreadWorkManager, ThreadWorkerABC, \
-    ThreadWorkManagerABC, LoadingMaskWidgetThreadWorkManager
+    ThreadWorkManagerABC, LoadingMaskWidgetThreadWorkManager, IconMovieThreadWorkManager
 
 _author_ = 'luwt'
 _date_ = '2021/11/22 16:52'
@@ -79,7 +79,7 @@ class TextBrowserWorker(ThreadWorkerABC):
 
     def do_run(self):
         # 尝试json解析文本
-        if self.result_display_combo_box.currentText() == RESULT_DISPLAY_JSON:
+        if self.result_display_combo_box.currentText() == RESULT_DISPLAY_JSON and self.text:
             # 如果解析出错，应该用原生展示
             try:
                 json_format_result = json.dumps(json.loads(self.text), indent=4, ensure_ascii=False)
@@ -90,6 +90,47 @@ class TextBrowserWorker(ThreadWorkerABC):
         else:
             self.result_browser.set_text(self.text)
         self.success_signal.emit()
+
+
+class DelConnHistoryWorker(ThreadWorkerABC):
+
+    success_signal = pyqtSignal(tuple)
+
+    def __init__(self, conn_id):
+        self.conn_id = conn_id
+        super().__init__()
+
+    def do_run(self):
+        tab_ids = TabSqlite().select_tab_ids_by_conn_id(self.conn_id)
+        TabSqlite().delete_by_conn_id(self.conn_id)
+        self.success_signal.emit(tab_ids)
+
+
+class DelServiceHistoryWorker(ThreadWorkerABC):
+
+    success_signal = pyqtSignal(tuple)
+
+    def __init__(self, conn_service_path):
+        self.conn_service_path = conn_service_path
+        super().__init__()
+
+    def do_run(self):
+        tab_ids = TabSqlite().select_tab_ids_like(self.conn_service_path)
+        TabSqlite().delete_by_tab_ids(tab_ids)
+        self.success_signal.emit(tab_ids)
+
+
+class DelMethodHistoryWorker(ThreadWorkerABC):
+
+    success_signal = pyqtSignal(str)
+
+    def __init__(self, tab_id):
+        self.tab_id = tab_id
+        super().__init__()
+
+    def do_run(self):
+        TabSqlite().delete_by_tab_ids((self.tab_id, ))
+        self.success_signal.emit(self.tab_id)
 
 
 # ----------------------- thread worker manager -----------------------
@@ -152,11 +193,57 @@ class AsyncSaveTabObjManager(ThreadWorkManagerABC):
 
 class AsyncDisplayTextBrowserManager(LoadingMaskThreadWorkManager):
 
-    def __init__(self, result_display_combo_box, text, result_browser, *args):
+    def __init__(self, result_display_combo_box, text, result_browser, callback, *args):
         self.result_display_combo_box = result_display_combo_box
         self.text = text
         self.result_browser = result_browser
+        self.callback = callback
         super().__init__(result_browser, *args)
 
     def get_worker(self):
         return TextBrowserWorker(self.result_display_combo_box, self.text, self.result_browser)
+
+    def success_post_process(self, *args):
+        self.callback()
+
+
+class AsyncDelConnHistoryManager(IconMovieThreadWorkManager):
+
+    def __init__(self, conn_id, callback, *args):
+        self.conn_id = conn_id
+        self.callback = callback
+        super().__init__(*args)
+
+    def get_worker(self):
+        return DelConnHistoryWorker(self.conn_id)
+
+    def success_post_process(self, *args):
+        self.callback(*args, self.window)
+
+
+class AsyncDelServiceHistoryManager(IconMovieThreadWorkManager):
+
+    def __init__(self, conn_service_path, callback, *args):
+        self.conn_service_path = conn_service_path
+        self.callback = callback
+        super().__init__(*args)
+
+    def get_worker(self):
+        return DelServiceHistoryWorker(self.conn_service_path)
+
+    def success_post_process(self, *args):
+        self.callback(*args, self.window)
+
+
+class AsyncDelMethodHistoryManager(IconMovieThreadWorkManager):
+
+    def __init__(self, tab_id, callback, *args):
+        self.tab_id = tab_id
+        self.callback = callback
+        super().__init__(*args)
+
+    def get_worker(self):
+        return DelMethodHistoryWorker(self.tab_id)
+
+    def success_post_process(self, *args):
+        self.callback(self.window.tab_widget, *args)

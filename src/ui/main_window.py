@@ -175,6 +175,11 @@ class MainWindow(QtWidgets.QMainWindow):
             # 右键菜单弹出位置跟随焦点位置
             menu.exec_(QCursor.pos())
 
+    def del_history(self):
+        item = self.tree_widget.currentItem()
+        node = tree_node_factory(item)
+        Context(node).del_history(item, self)
+
     def close(self):
         close_sqlite()
         self.tab_widget.close()

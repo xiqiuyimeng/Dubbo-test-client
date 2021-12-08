@@ -59,5 +59,8 @@ class ParamTableWidget(QTableWidget):
         """获取当前的行列及改变的文本，发送信号"""
         self.item_data_changed.emit(self.currentRow(), self.currentColumn(), text)
 
+    def clear_column(self, column):
+        [self.cellWidget(row, column).setText("") for row in range(self.rowCount())]
+
 
 

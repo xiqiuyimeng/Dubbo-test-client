@@ -9,6 +9,7 @@ _date_ = '2021/11/1 11:51'
 def fill_tool_bar(window):
     add_insert_conn_tool(window)
     add_refresh_tool(window)
+    add_del_history_tool(window)
     add_exit_tool(window)
 
 
@@ -26,6 +27,13 @@ def add_refresh_tool(window):
     refresh_tool.setShortcut('F5')
     # refresh_tool.triggered.connect(gui.refresh)
     window.toolBar.addAction(refresh_tool)
+
+
+def add_del_history_tool(window):
+    del_history_tool = QAction(QIcon(':/icon/remove.png'), '删除历史记录', window)
+    del_history_tool.setStatusTip('删除指定项下保存的方法测试记录')
+    del_history_tool.triggered.connect(window.del_history)
+    window.toolBar.addAction(del_history_tool)
 
 
 def add_exit_tool(window):

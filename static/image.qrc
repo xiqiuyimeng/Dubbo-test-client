@@ -8,5 +8,6 @@
     <file alias="exec.png">icon/exec.png</file>
     <file alias="exit.png">icon/exit.png</file>
     <file alias="refresh.png">icon/refresh.png</file>
+    <file alias="remove.png">icon/remove.png</file>
   </qresource>
 </RCC>

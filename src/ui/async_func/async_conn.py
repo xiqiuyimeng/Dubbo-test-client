@@ -86,7 +86,7 @@ class OpenServiceWorker(OpenItemChildrenWorker):
             
 class OpenMethodWorker(ThreadWorkerABC):
     
-    success_signal = pyqtSignal(int)
+    success_signal = pyqtSignal()
     
     def __init__(self, tab_id, order, method_id):
         super().__init__()
@@ -95,15 +95,10 @@ class OpenMethodWorker(ThreadWorkerABC):
         self.method_id = method_id
         
     def do_run(self):
-        # 从库中读取 opened item
-        opened_tab_info = OpenedItemSqlite().select_by_name(self.tab_id)
-        if opened_tab_info:
-            self.success_signal.emit(opened_tab_info.item_order)
-        else:
-            # 存库
-            tab_item = OpenedItem(None, self.tab_id, None, self.order, True, False, self.method_id, 3)
-            OpenedItemSqlite().add_tab(tab_item)
-            self.success_signal.emit(-1)
+        # 存库
+        tab_item = OpenedItem(None, self.tab_id, None, self.order, True, False, self.method_id, 3)
+        OpenedItemSqlite().add_tab(tab_item)
+        self.success_signal.emit()
 
 
 # ----------------------- thread worker manager -----------------------
