@@ -5,7 +5,6 @@ from PyQt5.QtWidgets import QTabBar, QMenu, QAction, QTabWidget
 
 from src.constant.tab_constant import CLOSE_CURRENT_TAB, CLOSE_OTHER_TABS, CLOSE_ALL_TABS, SET_CURRENT_INDEX, \
     CLOSE_TABS_TO_THE_LEFT, CLOSE_TABS_TO_THE_RIGHT
-from src.function.db.opened_item_sqlite import OpenedItemSqlite
 
 _author_ = 'luwt'
 _date_ = '2021/11/9 11:25'
@@ -30,8 +29,6 @@ class MyTabBar(QTabBar):
         self.customContextMenuRequested.connect(self.right_click_menu)
         # 关闭选项卡事件
         self.tabCloseRequested.connect(self.remove_tab)
-        # 当前选项卡指针改变时（选项卡顺序改变时也会触发），修改数据库
-        self.currentChanged.connect(self.change_current_order)
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         # 当事件的对象是tab bar时，并且是气泡提示事件
@@ -79,23 +76,37 @@ class MyTabBar(QTabBar):
             self.setCurrentIndex(index)
 
     def remove_tab(self, index):
-        # 删除存储的打开tab记录
         tab_id = self.parent.widget(index).property("tab_id")
-        OpenedItemSqlite().delete_by_name(tab_id)
         # 删除tab
         self.parent.removeTab(index)
+        # 删除存储的打开tab记录
+        self.parent.async_save_manager.remove_tab(tab_id)
 
     def change_current_order(self, index):
         """修改is current值和item order"""
         current_widget = self.parent.widget(index)
-        # 在启动过程中，没有必要执行修改数据库中顺序的操作
-        if current_widget and not self.parent.reopen_flag:
-            OpenedItemSqlite().update_current(current_widget.property("tab_id"))
+        if current_widget:
+            current_tab_id = current_widget.property("tab_id")
+            # 元素是否相等
+            tab_id_equal_flag = False
+            # 列表大小是否相等
+            len_equal_flag = self.parent.count() == len(self.parent.tab_id_list)
+            tab_ids = list()
             # order信息保存
             for idx in range(self.parent.count()):
                 tab = self.parent.widget(idx)
                 tab_id = tab.property("tab_id")
-                OpenedItemSqlite().update_order(tab_id, idx)
+                tab_ids.append(tab_id)
+                tab_id_equal_flag = tab_id == self.parent.tab_id_list[idx]
+            self.parent.fill_tab_id_list(tab_ids)
+            # 如果列表中每一个元素相等，并且大小一致，可以证明两者相同，不需要更新order
+            if tab_id_equal_flag and len_equal_flag:
+                self.parent.async_save_manager.change_current(current_tab_id, None)
+            else:
+                self.parent.async_save_manager.change_current(current_tab_id, tab_ids)
+        else:
+            # 如果是删除，删除到最后一个了，那么清空tab_id_list
+            self.parent.clear_tab_id_list()
 
 
 

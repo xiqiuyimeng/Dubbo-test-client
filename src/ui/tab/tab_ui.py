@@ -133,6 +133,7 @@ class TabUI:
             # 按顺序插入到 parent temp_tab_list 中
             self.parent.temp_tab_list.append((tab_order, self.tab, self.title))
         else:
+            self.parent.fill_tab_id_list(self.tab_id)
             # 添加tab，设置tab标题
             self.parent.addTab(self.tab, self.title)
             self.parent.setCurrentWidget(self.tab)
@@ -285,19 +286,20 @@ class TabUI:
         request_time_label = set_up_label(request_time_widget, REQUEST_TIME, "request_time_label")
         self.request_time_label_value = set_up_label(request_time_widget, "", "request_time_label_value")
         request_time_layout.addRow(request_time_label, self.request_time_label_value)
-        result_count_layout.addWidget(request_time_widget, 0, 1, 1, 1)
+        result_count_layout.addWidget(request_time_widget, 0, 1, 1, 2)
         response_time_widget = QWidget(result_count_widget)
         response_time_layout = QFormLayout(response_time_widget)
         response_time_label = set_up_label(result_count_widget, RESPONSE_TIME, "response_time_label")
         self.response_time_label_value = set_up_label(result_count_widget, "", "response_time_label_value")
         response_time_layout.addRow(response_time_label, self.response_time_label_value)
-        result_count_layout.addWidget(response_time_widget, 0, 2, 1, 1)
+        result_count_layout.addWidget(response_time_widget, 0, 3, 1, 2)
         result_cost_widget = QWidget(result_count_widget)
         result_cost_layout = QFormLayout(result_cost_widget)
         result_count_label = set_up_label(result_count_widget, COST_TIME, "result_count_label")
         self.result_count_label_value = set_up_label(result_count_widget, "", "result_count_label_value")
         result_cost_layout.addRow(result_count_label, self.result_count_label_value)
-        result_count_layout.addWidget(result_cost_widget, 0, 3, 1, 1)
+        # 水平居左，垂直居中
+        result_count_layout.addWidget(result_cost_widget, 0, 5, 1, 1, Qt.AlignLeft | Qt.AlignVCenter)
 
     def set_up_result_browser(self):
         """返回结果展示区"""
@@ -481,6 +483,9 @@ class TabUI:
         self.result_display_combo_box.currentIndexChanged.disconnect(self.combo_box_func)
 
     def reset_tab_data(self):
+        # 如果当前页还没填充过，就不需要重置了
+        if self.need_fill:
+            return
         self.disconnect_input_area_signal()
         self.disconnect_output_area_signal()
         # 构造一个初始的tab_obj

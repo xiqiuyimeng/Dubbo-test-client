@@ -6,7 +6,8 @@ from PyQt5.QtGui import QIcon
 from src.constant.main_constant import CLOSE_CONN_MENU, OPEN_CONN_MENU, TEST_CONN_MENU, ADD_CONN_MENU, EDIT_CONN_MENU, \
     DEL_CONN_MENU, OPEN_SERVICE_MENU, CLOSE_SERVICE_MENU, EDIT_CONN_PROMPT, CLOSE_METHOD_MENU, OPEN_METHOD_MENU, \
     DEL_CONN_PROMPT, CANCEL_WORK, DEL_CONN_HISTORY_MENU, DEL_SERVICE_HISTORY_MENU, DEL_METHOD_HISTORY_MENU, \
-    DEL_CONN_HISTORY_TITLE, DEL_SERVICE_HISTORY_TITLE, DEL_METHOD_HISTORY_TITLE
+    DEL_CONN_HISTORY_TITLE, DEL_SERVICE_HISTORY_TITLE, DEL_METHOD_HISTORY_TITLE, DEL_CONN_HISTORY_PROMPT, \
+    DEL_SERVICE_HISTORY_PROMPT, DEL_METHOD_HISTORY_PROMPT, TAB_ID_SEPARATOR
 from src.function.db.conn_sqlite import Connection
 from src.ui.async_func.async_conn import AsyncSimpleTestConnManager, AsyncOpenConnManager, AsyncOpenServiceManager,\
     AsyncOpenMethodManager
@@ -15,7 +16,7 @@ from src.ui.async_func.async_tab import AsyncDelConnHistoryManager, AsyncDelServ
     AsyncDelMethodHistoryManager
 from src.ui.box.message_box import pop_question
 from src.ui.tab.tab_ui import TabUI
-from src.ui.tree_item.my_tree_item import MyTreeWidgetItem
+from src.ui.tree.my_tree_item import MyTreeWidgetItem
 
 _author_ = 'luwt'
 _date_ = '2021/11/3 22:36'
@@ -241,10 +242,11 @@ class TreeNodeConn(TreeNodeAbstract):
             self.del_history(item, window)
 
     def del_history(self, item, window):
-        self.del_history_manager = AsyncDelConnHistoryManager(eval(item.text(2)).get('id'),
-                                                              batch_del_history, item,
-                                                              window, DEL_CONN_HISTORY_TITLE)
-        self.del_history_manager.start()
+        if pop_question(DEL_CONN_HISTORY_TITLE, DEL_CONN_HISTORY_PROMPT):
+            self.del_history_manager = AsyncDelConnHistoryManager(eval(item.text(2)).get('id'),
+                                                                  batch_del_history, item,
+                                                                  window, DEL_CONN_HISTORY_TITLE)
+            self.del_history_manager.start()
 
     def edit_conn(self, window, item):
         """
@@ -373,10 +375,11 @@ class TreeNodeService(TreeNodeAbstract):
             self.del_history(item, window)
 
     def del_history(self, item, window):
-        conn_service_path = f'{eval(item.parent().text(2)).get("id")}-{item.text(0)}-'
-        self.del_history_manager = AsyncDelServiceHistoryManager(conn_service_path, batch_del_history,
-                                                                 item, window, DEL_SERVICE_HISTORY_TITLE)
-        self.del_history_manager.start()
+        if pop_question(DEL_SERVICE_HISTORY_TITLE, DEL_SERVICE_HISTORY_PROMPT):
+            conn_service_path = f'{eval(item.parent().text(2)).get("id")}-{item.text(0)}-'
+            self.del_history_manager = AsyncDelServiceHistoryManager(conn_service_path, batch_del_history,
+                                                                     item, window, DEL_SERVICE_HISTORY_TITLE)
+            self.del_history_manager.start()
 
 
 class TreeNodeMethod(TreeNodeAbstract):
@@ -392,7 +395,7 @@ class TreeNodeMethod(TreeNodeAbstract):
         """
         conn_dict, service_path, method_dict, method_name = self.get_conn_service_method(item)
         # 首先构造tab的id：conn_id + service + method_name
-        tab_id = f'{conn_dict.get("id")}-{service_path}-{method_name}'
+        tab_id = construct_tab_id(conn_dict.get("id"), service_path, method_name)
         # 首先检索当前是否已经打开，如果已经打开，置为当前项即可
         tab_widget = get_tab(window.tab_widget, tab_id)
         if tab_widget:
@@ -458,7 +461,7 @@ class TreeNodeMethod(TreeNodeAbstract):
         """
         menu_list = list()
         conn_dict, service_path, method_dict, method_name = self.get_conn_service_method(item)
-        tab_id = f'{conn_dict.get("id")}-{service_path}-{method_name}'
+        tab_id = construct_tab_id(conn_dict.get("id"), service_path, method_name)
         tab_widget = get_tab(window.tab_widget, tab_id)
         if tab_widget:
             menu_list.append(CLOSE_METHOD_MENU)
@@ -485,12 +488,18 @@ class TreeNodeMethod(TreeNodeAbstract):
             self.del_history(item, window)
 
     def del_history(self, item, window):
-        conn_dict, service_path, method_dict, method_name = self.get_conn_service_method(item)
-        # 首先构造tab的id：conn_id + service + method_name
-        tab_id = f'{conn_dict.get("id")}-{service_path}-{method_name}'
-        self.del_history_manager = AsyncDelMethodHistoryManager(tab_id, reset_tab, item,
-                                                                window, DEL_METHOD_HISTORY_TITLE)
-        self.del_history_manager.start()
+        if pop_question(DEL_METHOD_HISTORY_TITLE, DEL_METHOD_HISTORY_PROMPT):
+            conn_dict, service_path, method_dict, method_name = self.get_conn_service_method(item)
+            # 首先构造tab的id：conn_id + service + method_name
+            tab_id = construct_tab_id(conn_dict.get("id"), service_path, method_name)
+            self.del_history_manager = AsyncDelMethodHistoryManager(tab_id, reset_tab, item,
+                                                                    window, DEL_METHOD_HISTORY_TITLE)
+            self.del_history_manager.start()
+
+
+def construct_tab_id(conn_id, service_path, method_name):
+    # 根据连接id，service path和method name构造一个tab id
+    return f'{conn_id}{TAB_ID_SEPARATOR}{service_path}{TAB_ID_SEPARATOR}{method_name}'
 
 
 def get_tab(tab_widget, tab_id):

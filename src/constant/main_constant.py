@@ -53,11 +53,28 @@ EDIT_CONN_PROMPT = '编辑连接需要先关闭连接，是否继续？'
 DEL_CONN_PROMPT = "删除连接需要先关闭连接，是否继续？"
 
 # 保存数据
-SAVE_TAB_DATA = "保存当前页操作记录"
+SAVE_TAB_DATA = "保存操作记录"
 # 同步节点展开状态
 SYNC_ITEM_EXPANDED = "同步节点展开状态"
 
 # 删除方法测试记录报错时弹框标题
-DEL_CONN_HISTORY_TITLE = "删除连接下方法测试记录"
-DEL_SERVICE_HISTORY_TITLE = "删除连接下方法测试记录"
-DEL_METHOD_HISTORY_TITLE = "删除连接下方法测试记录"
+DEL_CONN_HISTORY_TITLE = "删除连接下所有方法测试记录"
+DEL_SERVICE_HISTORY_TITLE = "删除接口服务下所有方法测试记录"
+DEL_METHOD_HISTORY_TITLE = "删除方法测试记录"
+# 删除方法测试记录时提示语
+DEL_CONN_HISTORY_PROMPT = "删除连接下所有方法测试记录，是否继续？"
+DEL_SERVICE_HISTORY_PROMPT = "删除接口下所有方法测试记录，是否继续？"
+DEL_METHOD_HISTORY_PROMPT = "删除方法测试记录，是否继续？"
+
+# 搜索按钮和定位按钮
+SEARCH_BUTTON = "搜索"
+LOCATION_BUTTON = "定位"
+
+# tab_widget 异步操作数据事件类型
+SAVE_TAB_WIDGET_DATA = "保存tab数据"
+REMOVE_TAB = "移除tab页"
+CHANGE_TAB_ORDER = "变更tab顺序"
+CLOSE_TAB_WIDGET = "关闭tab_widget"
+
+# 构造tab id时使用的分隔符
+TAB_ID_SEPARATOR = "#separator#"

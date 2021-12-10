@@ -35,6 +35,7 @@ opened_item_sql = {
     'set_current': 'update opened_item set is_current = 1 where item_name = ?',
     'batch_delete': 'delete from opened_item where id in ',
     'delete_by_parent': 'delete from opened_item where parent_id = ?',
+    'batch_update_order': 'update opened_item set item_order = case item_name {} end where item_name in ({})',
 }
 
 
@@ -92,10 +93,16 @@ class OpenedItemSqlite(SqliteBasic):
         self.cursor.execute(set_sql, (item_name,))
         self.conn.commit()
 
-    def update_order(self, item_name, order):
+    def update_order(self, item_names: list):
         """更新order"""
-        sql = f"{opened_item_sql.get('update_selective')}item_order = ? where item_name = ?"
-        self.cursor.execute(sql, (order, item_name))
+        when_clause = 'when ? then ? ' * len(item_names)
+        sql = opened_item_sql.get('batch_update_order').format(when_clause, ','.join('?' * len(item_names)))
+        param = list()
+        for order, item_name in enumerate(item_names):
+            param.append(item_name)
+            param.append(order)
+        param.extend(item_names)
+        self.cursor.execute(sql, param)
         self.conn.commit()
 
     def delete_by_name(self, item_name):

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-在重新启动软件过程中，实现异步读取数据机制，但是由于sqlite3不支持多线程下的操作，所以在读取tab数据时，
-并没有用异步的形式，实际考虑，应该不会有太大影响，其余打开树结构的数据均采用异步形式
+在重新启动软件过程中，实现异步读取数据机制，对于tab页，实施懒加载的策略，只加载当前页，切换页时再加载对应页
 """
 from PyQt5.QtCore import pyqtSignal
 
@@ -10,8 +9,8 @@ from src.function.db.conn_sqlite import ConnSqlite
 from src.function.db.opened_item_sqlite import OpenedItemSqlite
 from src.ui.async_func.async_operate_abc import ThreadWorkerABC, IconMovieThreadWorkManager
 from src.ui.func.tree import add_conn_tree_item, tree_node_factory, Context
-from src.ui.scrollable_widget.scrollable_widget import MyTreeWidget
 from src.ui.tab.tab_widget import MyTabWidget
+from src.ui.tree.my_tree import MyTreeWidget
 
 _author_ = 'luwt'
 _date_ = '2021/11/16 11:12'
@@ -63,7 +62,6 @@ class AsyncReopenManager(IconMovieThreadWorkManager):
         self.tree_widget = tree_widget
         super().__init__(tree_widget.headerItem(), window, REOPEN_PROJECT_TITLE)
         self.tab_widget = tab_widget
-        self.tab_widget.reopen_flag = True
 
         # 临时变量，key为conn id，value为conn item
         self.conn_item_dict = dict()
@@ -105,10 +103,16 @@ class AsyncReopenManager(IconMovieThreadWorkManager):
         Context(node).reopen_item(item_value[0], opened_items, self.opened_item_dict,
                                   item_value[1], self.window)
 
+    def post_process(self):
+        super().post_process()
+        # 连接信号
+        self.window.connect_rest_signal()
+        # 为了避免启动后，光标在搜索框内，所以将焦点设置在树控件
+        self.tree_widget.setFocus()
+
     def success_post_process(self, *args):
         # 按顺序排列tab
         self.tab_widget.insert_tab_by_order()
-        self.tab_widget.reopen_flag = False
         # 删除临时变量
         del self.conn_item_dict
         del self.opened_item_dict

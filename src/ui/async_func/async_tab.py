@@ -3,7 +3,9 @@ import json
 
 from PyQt5.QtCore import pyqtSignal
 
+from src.constant.main_constant import SAVE_TAB_WIDGET_DATA, CLOSE_TAB_WIDGET, REMOVE_TAB, CHANGE_TAB_ORDER
 from src.constant.tab_constant import RESULT_DISPLAY_JSON
+from src.function.db.opened_item_sqlite import OpenedItemSqlite
 from src.function.db.tab_sqlite import TabObj, TabSqlite
 from src.ui.async_func.async_operate_abc import ConnWorker, LoadingMaskThreadWorkManager, ThreadWorkerABC, \
     ThreadWorkManagerABC, LoadingMaskWidgetThreadWorkManager, IconMovieThreadWorkManager
@@ -51,20 +53,41 @@ class SaveTabObjWorker(ThreadWorkerABC):
 
     def do_run(self):
         while True:
-            stop_flag, tab_dict = self.queue.get()
-            if stop_flag:
+            event_type, data = self.queue.get()
+            if event_type == SAVE_TAB_WIDGET_DATA:
+                self.save_data(data)
+            elif event_type == REMOVE_TAB:
+                self.remove_tab(data)
+            elif event_type == CHANGE_TAB_ORDER:
+                self.change_current(*data)
+            elif event_type == CLOSE_TAB_WIDGET:
                 break
-            # 首先查询tab_id是否已存在，如果存在，则为更新操作
-            tab = TabSqlite().select_by_tab_id(tab_dict.get("tab_id"))
-            if tab.id:
-                tab_dict["id"] = tab.id
-                tab_obj = TabObj(**tab_dict)
-                TabSqlite().update_selective(tab_obj)
-                self.success_signal.emit(-1)
-            else:
-                tab_obj = TabObj(**tab_dict)
-                tab_obj_id = TabSqlite().insert(tab_obj)
-                self.success_signal.emit(tab_obj_id)
+
+    def save_data(self, tab_dict):
+        # 首先查询tab_id是否已存在，如果存在，则为更新操作
+        tab = TabSqlite().select_by_tab_id(tab_dict.get("tab_id"))
+        if tab.id:
+            tab_dict["id"] = tab.id
+            tab_obj = TabObj(**tab_dict)
+            TabSqlite().update_selective(tab_obj)
+            self.success_signal.emit(-1)
+        else:
+            tab_obj = TabObj(**tab_dict)
+            tab_obj_id = TabSqlite().insert(tab_obj)
+            self.success_signal.emit(tab_obj_id)
+
+    @staticmethod
+    def remove_tab(tab_id):
+        # 删除存储的打开tab记录
+        OpenedItemSqlite().delete_by_name(tab_id)
+
+    @staticmethod
+    def change_current(tab_id, tab_ids):
+        OpenedItemSqlite().update_current(tab_id)
+        # 如果不需要，就不更新order
+        if tab_ids:
+            # order信息保存
+            OpenedItemSqlite().update_order(tab_ids)
 
 
 class TextBrowserWorker(ThreadWorkerABC):
@@ -181,10 +204,16 @@ class AsyncSaveTabObjManager(ThreadWorkManagerABC):
 
     def save_tab_obj(self, tab_dict, callback):
         self.callback = callback
-        self.queue.put((False, tab_dict))
+        self.queue.put((SAVE_TAB_WIDGET_DATA, tab_dict))
+
+    def remove_tab(self, tab_id):
+        self.queue.put((REMOVE_TAB, tab_id))
+
+    def change_current(self, tab_id, tab_ids):
+        self.queue.put((CHANGE_TAB_ORDER, (tab_id, tab_ids)))
 
     def worker_quit(self):
-        self.queue.put((True, None))
+        self.queue.put((CLOSE_TAB_WIDGET, None))
         super().worker_quit()
 
     def success_post_process(self, *args):
