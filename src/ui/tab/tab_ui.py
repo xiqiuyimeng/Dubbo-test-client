@@ -75,6 +75,8 @@ class TabUI:
         self.method_param_list = self.get_param_list()
         self.rpc_result = None
         self.conn_name = f"连接名称：{self.conn_dict.get('name')}"
+        self.conn_host = f"连接host地址：{self.conn_dict.get('host')}"
+        self.conn_port = f"连接端口：{self.conn_dict.get('port')}"
         self.service_path_name = f"服务路径：{self.service_path}"
         self.method_name = f"方法名称：{self.method_dict.get('method_name')}"
         self.method_param = f"参数详情：{self.method_dict.get('param_type')}"
@@ -99,8 +101,9 @@ class TabUI:
         # 将tab_id 写入到所属tab页中
         self.tab.setProperty("tab_id", self.tab_id)
         # 将气泡提示需要的文案提前放入tab属性中
-        tool_tip = f'{self.title}\n{self.conn_name}\n{self.service_path_name}\n' \
-                   f'{self.method_name}\n{self.method_param}\n{self.method_result}'
+        tool_tip = f'{self.title}\n{self.conn_name}\n{self.conn_host}\n{self.conn_port}' \
+                   f'\n{self.service_path_name}\n{self.method_name}\n{self.method_param}' \
+                   f'\n{self.method_result}'
         self.tab.setProperty("tool_tip", tool_tip)
         # tab页，垂直布局
         tab_vertical_layout = QVBoxLayout(self.tab)
@@ -158,7 +161,7 @@ class TabUI:
         method_display_layout = QHBoxLayout(method_display_widget)
         method_display_layout.setObjectName("method_display_layout")
         # 间距为0
-        method_display_layout.setContentsMargins(0, 0, 0, 0)
+        method_display_layout.setContentsMargins(0, method_display_layout.contentsMargins().top(), 0, 0)
         # 展示区，垂直布局
         display_layout = QVBoxLayout()
         display_layout.setObjectName("display_layout")
@@ -166,6 +169,12 @@ class TabUI:
         # 连接名称展示区
         conn_name_label = set_up_label(method_display_widget, self.conn_name, "conn_name_label")
         display_layout.addWidget(conn_name_label)
+        # 连接host
+        conn_host_label = set_up_label(method_display_widget, self.conn_host, "conn_host_label")
+        display_layout.addWidget(conn_host_label)
+        # 连接端口
+        conn_port_label = set_up_label(method_display_widget, self.conn_port, "conn_port_label")
+        display_layout.addWidget(conn_port_label)
         # 服务路径展示区
         service_path_label = set_up_label(method_display_widget, self.service_path_name, "service_path_label")
         display_layout.addWidget(service_path_label)
