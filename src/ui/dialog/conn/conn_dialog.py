@@ -9,7 +9,7 @@ from src.function.db.conn_sqlite import Connection
 from src.ui.async_func.async_conn import AsyncTestConnManager
 from src.ui.async_func.async_conn_db import AsyncAddConnDBManager, AsyncEditConnDBManager, \
     AsyncCheckNameConnDBManager
-from src.ui.func.common import keep_center
+from src.ui.func.common import keep_center, add_line_edit_clear_action
 from src.ui.func.tree import add_conn_tree_item
 
 _author_ = 'luwt'
@@ -48,6 +48,8 @@ class ConnDialog(QDialog):
         self.conn_gridLayout.addWidget(self.grid_layout_blank, 0, 1, 1, 1)
         self.conn_name_value = QtWidgets.QLineEdit(self.conn_frame)
         self.conn_name_value.setObjectName("conn_name_value")
+        # 增加lineedit右侧的清空按钮
+        add_line_edit_clear_action(self.conn_name_value)
         self.conn_gridLayout.addWidget(self.conn_name_value, 0, 2, 1, 1)
         # 检查名称是否可用的提示行
         self.name_check_blank = QtWidgets.QLabel(self.conn_frame)
@@ -62,6 +64,7 @@ class ConnDialog(QDialog):
         self.conn_gridLayout.addWidget(self.host, 2, 0, 1, 1)
         self.host_value = QtWidgets.QLineEdit(self.conn_frame)
         self.host_value.setObjectName("host_value")
+        add_line_edit_clear_action(self.host_value)
         self.conn_gridLayout.addWidget(self.host_value, 2, 2, 1, 1)
         # port
         self.port = QtWidgets.QLabel(self.conn_frame)
@@ -69,6 +72,7 @@ class ConnDialog(QDialog):
         self.conn_gridLayout.addWidget(self.port, 3, 0, 1, 1)
         self.port_value = QtWidgets.QLineEdit(self.conn_frame)
         self.port_value.setObjectName("port_value")
+        add_line_edit_clear_action(self.port_value)
         self.conn_gridLayout.addWidget(self.port_value, 3, 2, 1, 1)
         # timeout
         self.timeout = QtWidgets.QLabel(self.conn_frame)
@@ -76,6 +80,7 @@ class ConnDialog(QDialog):
         self.conn_gridLayout.addWidget(self.timeout, 5, 0, 1, 1)
         self.timeout_value = QtWidgets.QLineEdit(self.conn_frame)
         self.timeout_value.setObjectName("timeout_value")
+        add_line_edit_clear_action(self.timeout_value)
         self.conn_gridLayout.addWidget(self.timeout_value, 5, 2, 1, 1)
 
         # 按钮布局
@@ -97,10 +102,6 @@ class ConnDialog(QDialog):
         self.cancel_btn.setObjectName("cancel_btn")
         self.conn_btn_gridLayout.addWidget(self.cancel_btn, 0, 3, 1, 1)
 
-        self.setup_ui()
-        self.bind_action()
-        self.translate_ui()
-
         self.add_conn_worker: AsyncAddConnDBManager = ...
         self.edit_conn_worker: AsyncEditConnDBManager = ...
         self.async_check_name = AsyncCheckNameConnDBManager(self.connection.id,
@@ -108,6 +109,10 @@ class ConnDialog(QDialog):
         self.async_check_name.start()
         # 预定义一个测试连接的线程
         self.async_test_conn: AsyncTestConnManager = ...
+
+        self.setup_ui()
+        self.bind_action()
+        self.translate_ui()
 
     def setup_ui(self):
         # 当前窗口大小根据主窗口大小计算
@@ -131,12 +136,12 @@ class ConnDialog(QDialog):
 
     def bind_action(self):
         # 输入框事件绑定
-        self.conn_name_value.textEdited.connect(lambda conn_name:
-                                                self.async_check_name.check_name_available(conn_name))
-        self.conn_name_value.textEdited.connect(self.check_input)
-        self.host_value.textEdited.connect(self.check_input)
-        self.port_value.textEdited.connect(self.check_input)
-        self.timeout_value.textEdited.connect(self.check_input)
+        self.conn_name_value.textChanged.connect(lambda conn_name:
+                                                 self.async_check_name.check_name_available(conn_name))
+        self.conn_name_value.textChanged.connect(self.check_input)
+        self.host_value.textChanged.connect(self.check_input)
+        self.port_value.textChanged.connect(self.check_input)
+        self.timeout_value.textChanged.connect(self.check_input)
 
         # 测试连接按钮：点击触发测试连接功能
         self.test_conn_btn.clicked.connect(self.test_connection)

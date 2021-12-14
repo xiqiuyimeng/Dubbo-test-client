@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QCursor, QIcon
-from PyQt5.QtWidgets import QVBoxLayout, QToolBar, QSplitter, QAction
+from PyQt5.QtGui import QCursor
+from PyQt5.QtWidgets import QVBoxLayout, QToolBar, QSplitter
 
 from src.constant.conn_dialog_constant import ADD_CONN_MENU, EDIT_CONN_MENU
-from src.constant.main_constant import SEARCH_BUTTON, LOCATION_BUTTON, TAB_ID_SEPARATOR
+from src.constant.main_constant import LOCATION_BUTTON, TAB_ID_SEPARATOR, TREE_TOP_TEXT
 from src.function.db.conn_sqlite import Connection
 from src.ui.async_func.async_reopen_item import AsyncReopenManager
 from src.ui.button.label_button import LabelButton
@@ -51,31 +51,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_layout.setSpacing(0)
         self.tree_layout.setContentsMargins(0, 0, 0, 0)
         # 树顶部的工具栏
-        self.tree_tool_widget = QtWidgets.QWidget(self.tree_frame)
-        self.tree_layout.addWidget(self.tree_tool_widget)
-        self.tree_tool_layout = QtWidgets.QGridLayout(self.tree_tool_widget)
-        # 搜索框
-        self.tree_tool_search = QtWidgets.QLineEdit(self.tree_tool_widget)
-        self.tree_tool_search.setObjectName("tree_tool_search")
-        self.clear_search_action = QAction(self.tree_tool_search)
-        self.clear_search_action.setIcon(QIcon(":/icon/remove.png"))
-        self.tree_tool_search.addAction(self.clear_search_action,
-                                        QtWidgets.QLineEdit.ActionPosition.TrailingPosition)
-        self.tree_tool_layout.addWidget(self.tree_tool_search, 0, 0, 1, 1)
-        # 搜索按钮
-        self.tree_tool_search_button = LabelButton(self.tree_tool_widget)
-        self.tree_tool_search_button.setObjectName("tree_tool_search_button")
-        self.tree_tool_layout.addWidget(self.tree_tool_search_button, 0, 1, 1, 1)
+        self.tree_header_widget = QtWidgets.QWidget(self.tree_frame)
+        self.tree_layout.addWidget(self.tree_header_widget)
+        self.tree_header_layout = QtWidgets.QGridLayout(self.tree_header_widget)
+        # 左、右、顶部边距设为0
+        self.tree_header_layout.setContentsMargins(0, 0, 0, self.tree_header_layout.contentsMargins().bottom())
+        # 树标题
+        self.tree_tool_header = QtWidgets.QLabel(self.tree_header_widget)
+        self.tree_tool_header.setText(TREE_TOP_TEXT)
+        self.tree_header_layout.addWidget(self.tree_tool_header, 0, 0, 1, 8)
         # 定位按钮
-        self.tree_tool_location_button = LabelButton(self.tree_tool_widget)
+        self.tree_tool_location_button = LabelButton(self.tree_header_widget)
         self.tree_tool_location_button.setObjectName("tree_tool_location_button")
         # 默认不可用
         self.tree_tool_location_button.setEnabled(False)
-        self.tree_tool_layout.addWidget(self.tree_tool_location_button, 0, 2, 1, 1)
+        self.tree_header_layout.addWidget(self.tree_tool_location_button, 0, 8, 1, 1)
         # 左边树结构
         self.tree_widget = MyTreeWidget(self.tree_frame, self)
         self.tree_widget.setObjectName("tree_widget")
-        self.tree_widget.headerItem().setText(0, "连接列表")
+        self.tree_widget.headerItem().setHidden(True)
         self.tree_layout.addWidget(self.tree_widget)
         # 右边tab区frame
         self.tab_frame = QtWidgets.QFrame(self.main_splitter)
@@ -148,10 +142,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # tab页清除或打开tab信号
         self.tab_widget.opened_tab_signal.connect(lambda: self.tree_tool_location_button.setEnabled(True))
         self.tab_widget.clear_tabs_signal.connect(lambda: self.tree_tool_location_button.setEnabled(False))
-        # 搜索
-        self.tree_tool_search_button.clicked.connect(lambda: print("搜索"))
-        # 清空搜索框
-        self.clear_search_action.triggered.connect(self.tree_tool_search.clear)
         # 定位
         self.tree_tool_location_button.clicked.connect(self.location_method)
 
@@ -163,7 +153,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def translate_ui(self):
         self.setWindowTitle(self._translate("MainWindow", "MainWindow"))
-        self.tree_tool_search_button.setText(SEARCH_BUTTON)
         self.tree_tool_location_button.setText(LOCATION_BUTTON)
 
     def add_conn(self):

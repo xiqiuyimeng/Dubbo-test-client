@@ -38,6 +38,8 @@ class MyTreeWidget(QTreeWidget, MyScrollableWidget):
 
     def set_selected_focus(self, item):
         # 设置对应节点选中状态
+        if not self.hasFocus():
+            self.setFocus()
         self.setCurrentItem(item)
         # 选中节点后，将节点滑动到视图中央
         self.scrollToItem(item, QAbstractItemView.PositionAtCenter)

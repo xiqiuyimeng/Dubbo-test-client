@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QWidget, QLabel
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QWidget, QLabel, QAction, QLineEdit
 
 from src.function.db.conn_sqlite import ConnSqlite
 from src.function.db.opened_item_sqlite import OpenedItemSqlite
@@ -29,6 +30,14 @@ def set_up_label(parent: QWidget, text: str, obj_name: str):
     # 设置可选中
     label.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
     return label
+
+
+def add_line_edit_clear_action(target):
+    # 在line edit输入框右侧增加删除按钮
+    clear_action = QAction(target)
+    clear_action.setIcon(QIcon(":/icon/remove.png"))
+    clear_action.triggered.connect(lambda: target.clear())
+    target.addAction(clear_action, QLineEdit.ActionPosition.TrailingPosition)
 
 
 def close_sqlite():

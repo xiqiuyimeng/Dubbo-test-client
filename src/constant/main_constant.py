@@ -66,8 +66,7 @@ DEL_CONN_HISTORY_PROMPT = "删除连接下所有方法测试记录，是否继�
 DEL_SERVICE_HISTORY_PROMPT = "删除接口下所有方法测试记录，是否继续？"
 DEL_METHOD_HISTORY_PROMPT = "删除方法测试记录，是否继续？"
 
-# 搜索按钮和定位按钮
-SEARCH_BUTTON = "搜索"
+# 定位按钮
 LOCATION_BUTTON = "定位"
 
 # tab_widget 异步操作数据事件类型
@@ -78,3 +77,6 @@ CLOSE_TAB_WIDGET = "关闭tab_widget"
 
 # 构造tab id时使用的分隔符
 TAB_ID_SEPARATOR = "#separator#"
+
+# 树控件顶层节点名称文本
+TREE_TOP_TEXT = "连接列表"
