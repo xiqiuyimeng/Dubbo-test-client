@@ -109,6 +109,8 @@ class AsyncReopenManager(IconMovieThreadWorkManager):
         self.window.connect_rest_signal()
         # 为了避免启动后，光标在搜索框内，所以将焦点设置在树控件
         self.tree_widget.setFocus()
+        # 根据当前内容决定列宽度
+        self.tree_widget.tree_column_resize()
 
     def success_post_process(self, *args):
         # 按顺序排列tab
