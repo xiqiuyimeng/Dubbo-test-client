@@ -26,7 +26,7 @@ class DubboConn:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type:
-            raise exc_tb
+            raise exc_val
         self.conn.close()
 
     def connect(self):
