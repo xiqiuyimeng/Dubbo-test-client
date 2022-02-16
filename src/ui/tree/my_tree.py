@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-from PyQt5.QtWidgets import QTreeWidget, QAbstractItemView
+from PyQt5.QtWidgets import QTreeWidget
 
 from src.constant.main_constant import SYNC_ITEM_EXPANDED
 from src.ui.async_func.async_conn_db import AsyncUpdateExpandedManager
-from src.ui.scrollable_widget.scrollable_widget import MyScrollableWidget
+from src.ui.searcher.smart_items_view.smart_items_view import SmartSearcherTreeWidget
 
 _author_ = 'luwt'
 _date_ = '2021/12/10 12:48'
 
 
-class MyTreeWidget(QTreeWidget, MyScrollableWidget):
+class MyTreeWidget(QTreeWidget, SmartSearcherTreeWidget):
 
     def __init__(self, parent, window):
         super().__init__(parent)
@@ -36,12 +36,3 @@ class MyTreeWidget(QTreeWidget, MyScrollableWidget):
                     return item
                 return self.recursive_search_item(item, level + 1)
 
-    def set_selected_focus(self, item):
-        # 设置对应节点选中状态
-        if not self.hasFocus():
-            self.setFocus()
-        self.setCurrentItem(item)
-        # 选中节点后，将节点滑动到视图中央
-        self.scrollToItem(item, QAbstractItemView.PositionAtCenter)
-        # 滚动到视图中央后，可能由于水平方向其他项文本过长，导致计算的水平中央并不能展示出当前项，所以在调用一次滚动确保可见
-        self.scrollToItem(item, QAbstractItemView.EnsureVisible)

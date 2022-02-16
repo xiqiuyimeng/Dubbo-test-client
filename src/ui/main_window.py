@@ -152,7 +152,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tree_widget.collapsed.connect(self.handle_expanded_changed)
 
     def translate_ui(self):
-        self.setWindowTitle(self._translate("MainWindow", "MainWindow"))
+        self.setWindowTitle(self._translate("MainWindow", "Dubbo-test-client"))
         self.tree_tool_location_button.setText(LOCATION_BUTTON)
 
     def add_conn(self):
