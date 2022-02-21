@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QPalette
 from PyQt5.QtWidgets import QLineEdit
 
@@ -12,6 +12,7 @@ class SearcherLineEdit(QLineEdit):
     def __init__(self):
         super().__init__()
         self.right_palette = self.palette()
+        self.textChanged.connect(self.set_size)
 
     def sub_text(self):
         if self.text():
@@ -24,3 +25,10 @@ class SearcherLineEdit(QLineEdit):
 
     def paint_right_color(self):
         self.setPalette(self.right_palette)
+
+    def set_size(self):
+        self.setFixedSize(self.sizeHint())
+
+    def sizeHint(self):
+        return QSize(self.fontMetrics().width(self.text()) + self.fontMetrics().maxWidth(),
+                     self.fontMetrics().height() + self.fontMetrics().descent())

@@ -35,9 +35,6 @@ class SmartSearcherTreeWidget(SmartSearcherItemView):
 
     def __init__(self, parent):
         super().__init__(parent)
-        font = QFont()
-        font.setFamily("menlo")
-        self.setFont(font)
 
     def get_searcher(self):
         return TreeSearcher(self, self.parent_widget)

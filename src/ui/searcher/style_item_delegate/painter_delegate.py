@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from abc import ABC
 
-from PyQt5.QtCore import Qt, QRect
+from PyQt5.QtCore import Qt, QRect, QRectF
 from PyQt5.QtGui import QBrush
 from PyQt5.QtWidgets import QStyle, QStyleOptionButton, QTreeWidgetItem, QListWidgetItem
 
@@ -32,18 +32,8 @@ class ItemPainterContext:
         self.margin_h = style.pixelMetric(QStyle.PM_FocusFrameHMargin) + 1
         self.painters = [CheckBoxItemPainter(self.item, self.margin_h, style, painter, visual_rect),
                          IconItemPainter(self.item, self.margin_h, style, painter, visual_rect),
-                         self._get_text_painter(style, painter, visual_rect, item_text,
-                                                selected_flag, search_flag, search_item_records)]
-
-    def _get_text_painter(self, style, painter, visual_rect, item_text,
-                          selected_flag, search_flag, search_item_records):
-        param = item_text, selected_flag, search_flag, search_item_records, \
-                self.item, self.margin_h, style, painter, visual_rect
-        # 根据item类型决定使用哪个text painter
-        if isinstance(self.item, QTreeWidgetItem):
-            return TextTreeItemPainter(*param)
-        elif isinstance(self.item, QListWidgetItem):
-            return TextListItemPainter(*param)
+                         TextItemPainter(item_text, selected_flag, search_flag, search_item_records,
+                                         self.item, self.margin_h, style, painter, visual_rect)]
 
     def paint_item(self):
         left_x = 0
@@ -91,10 +81,10 @@ class CheckBoxItemPainter(ItemPainterAbstract):
     def __init__(self, item, margin_h, style, painter, visual_rect):
         super().__init__(item, margin_h, style, painter, visual_rect)
         self.checkbox_width = self.style.pixelMetric(QStyle.PM_IndicatorWidth)
+        self.check_state = get_item_checkbox(self.item)
 
     def match_type(self) -> bool:
-        check_state = get_item_checkbox(self.item)
-        self.match = check_state is not None
+        self.match = self.check_state is not None
         return self.match
 
     def calculate_paint_rect(self, left_x):
@@ -106,6 +96,10 @@ class CheckBoxItemPainter(ItemPainterAbstract):
         opt = QStyleOptionButton()
         opt.rect = rect
         opt.state = QStyle.State_Enabled | QStyle.State_Active
+        if self.check_state == Qt.CheckState.Checked:
+            opt.state |= QStyle.State_On
+        else:
+            opt.state |= QStyle.State_Off
         self.style.drawControl(QStyle.CE_CheckBox, opt, self.painter)
 
 
@@ -145,6 +139,12 @@ class TextItemPainter(ItemPainterAbstract):
     def get_text_rect_x(self, left_x):
         return self.margin_h + left_x + 1 if left_x else self.margin_h + left_x
 
+    def calculate_paint_rect(self, left_x):
+        h = self.painter.fontMetrics().height()
+        y = (self.visual_rect.height() - h) / 2
+        return QRectF(self.get_text_rect_x(left_x), y,
+                      self.visual_rect.width() - left_x, h)
+
     def paint_rect(self, rect):
         if self.search_flag:
             self.draw_highlight_text(rect)
@@ -152,7 +152,7 @@ class TextItemPainter(ItemPainterAbstract):
             self.draw_normal_text(rect)
 
     def draw_normal_text(self, rect):
-        self.painter.drawText(rect, Qt.AlignVCenter, self.item_text)
+        self.painter.drawText(rect, self.item_text)
 
     def draw_highlight_text(self, text_rect):
         # 获取当前painter像素
@@ -171,7 +171,7 @@ class TextItemPainter(ItemPainterAbstract):
             # 左边像素宽度
             left_text_width = font_metrics.width(left_text)
             # 找到左边字符的rect
-            left_rect = QRect(text_rect_x, text_rect.y(), left_text_width, text_rect.height())
+            left_rect = QRectF(text_rect_x, text_rect.y(), left_text_width, text_rect.height())
 
             # 搜索文本
             current_search_text = self.item_text[char_start_idx: char_end_idx + 1] \
@@ -179,24 +179,24 @@ class TextItemPainter(ItemPainterAbstract):
             # 获取搜索文本的像素宽度
             search_text_width = font_metrics.width(current_search_text)
             # 找到当前字符的rect
-            search_rect = QRect(text_rect_x + left_text_width,
-                                text_rect.y(),
-                                search_text_width,
-                                text_rect.height())
+            search_rect = QRectF(text_rect_x + left_text_width,
+                                 text_rect.y(),
+                                 search_text_width,
+                                 text_rect.height())
 
             start = char_end_idx + 1
-            text_rect_x = text_rect_x + left_text_width + search_text_width
-            text_rect_width = text_rect_width + left_text_width + search_text_width
+            text_rect_x += left_text_width + search_text_width
+            text_rect_width += left_text_width + search_text_width
 
             # 如果左边有字符
             if left_text:
-                self.painter.drawText(left_rect, Qt.AlignVCenter, left_text)
+                self.painter.drawText(left_rect, left_text)
             # 处理当前搜索的字符
             self.painter.setPen(Qt.white)
-            self.painter.setBackground(QBrush(Qt.red))
+            self.painter.setBackground(QBrush(Qt.darkCyan))
             # 不透明模式OpaqueMode，默认为透明
             self.painter.setBackgroundMode(Qt.OpaqueMode)
-            self.painter.drawText(search_rect, Qt.AlignVCenter, current_search_text)
+            self.painter.drawText(search_rect, current_search_text)
             # 弹出保存的painter
             self.painter.restore()
 
@@ -204,29 +204,7 @@ class TextItemPainter(ItemPainterAbstract):
         rest_start_idx = self.search_item_records[-1][-1]
         if rest_start_idx < len(self.item_text) - 1:
             # 计算右边的rect
-            right_rect = QRect(text_rect_x, text_rect.y(),
+            right_rect = QRectF(text_rect_x, text_rect.y(),
                                text_rect.width() - text_rect_width, text_rect.height())
-            self.painter.drawText(right_rect, Qt.AlignVCenter, self.item_text[rest_start_idx + 1:])
-
-
-class TextTreeItemPainter(TextItemPainter):
-
-    def __init__(self, *args):
-        super().__init__(*args)
-
-    def calculate_paint_rect(self, left_x):
-        h = self.painter.fontMetrics().height()
-        y = (self.visual_rect.height() - h) >> 1
-        return QRect(self.get_text_rect_x(left_x), y,
-                     self.visual_rect.width() - left_x, h - 1)
-
-
-class TextListItemPainter(TextItemPainter):
-
-    def __init__(self, *args):
-        super().__init__(*args)
-
-    def calculate_paint_rect(self, left_x):
-        return QRect(self.get_text_rect_x(left_x), 0,
-                     self.visual_rect.width() - left_x, self.visual_rect.height() - 1)
+            self.painter.drawText(right_rect, self.item_text[rest_start_idx + 1:])
 

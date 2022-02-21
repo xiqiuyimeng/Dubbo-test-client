@@ -37,8 +37,8 @@ class SearchStyledItemDelegate(QStyledItemDelegate):
             idx_str = self.get_item_text_func(item)
             # 重构后的绘制代码
             context = ItemPainterContext(item, self.parent)
-            search_item_records = self.search_item_dict.get(id(item))[-1] if self.search_item_dict.get(
-                id(item)) else None
+            search_item_records = self.search_item_dict.get(id(item))[-1] \
+                if self.search_item_dict.get(id(item)) else None
             context.init_item_rect(painter, option, index, idx_str, selected_flag, search_flag, search_item_records)
             # 如果是选中元素，处理背景色
             if selected_flag:

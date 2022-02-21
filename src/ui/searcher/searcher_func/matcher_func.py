@@ -3,82 +3,121 @@ _author_ = 'luwt'
 _date_ = '2022/1/20 20:00'
 
 
-class Matcher:
-    """文本搜索匹配，以左边为整词的原则匹配，尽量减少匹配次数"""
-    def __init__(self, original_text):
-        self.original_text = original_text
-        self.match_idx_list = list()
-        self.rest_start_idx = 0
-        self.match_flag = False
+class SmartMatcher:
 
-    def smart_match(self, text):
-        """匹配文本，首先使用全词匹配，失败后进行拆分匹配"""
-        parser = MatchParser(self.original_text)
-        if parser.match_parse(text):
-            self.match_idx_list = parser.match_idx_list
+    def __init__(self, search_text):
+        self.search_text = search_text.lower()
+        self.target_text = ...
+        self.consecutive_idx_segments = ...
+        self.idx_match_list = ...
+
+    def match(self, target_text):
+        """匹配搜索词在目标词中的位置"""
+        self.target_text = target_text.lower()
+        # 首先进行简单匹配，将整词进行匹配
+        simple_match_result = self.simple_match()
+        if simple_match_result:
+            # 返回统一格式
+            return [simple_match_result, ]
         else:
-            self.split_match(text)
-        return self.match_idx_list
+            return self.smart_match()
 
-    def split_match(self, text, left_text=None):
-        """拆分匹配，以左边为整词原则拆分匹配"""
-        if self.match_flag:
+    def smart_match(self):
+        """智能匹配，匹配搜索词在目标词中的位置，尽量以单词的形式匹配"""
+        self.consecutive_idx_segments = list()
+        # 首先初步匹配，获取到text中每个字符在target text中的位置（按text中的字符顺序排列）
+        each_char_idx_list = self.first_match()
+        if not each_char_idx_list:
             return
-        # 拆分
-        len_text = len(text)
-        if len_text > 1:
-            for i in range(1, len_text):
-                left, right = text[:len_text - i], text[len_text - i:]
-                if left_text is not None:
-                    # 如果left_text不是none，说明上一层左边有值，应该再追加上当前拆分的left，作为入参传递到一层
-                    if isinstance(left_text, list):
-                        left = [*left_text, left]
-                    else:
-                        left = [left_text, left]
-                # 拆分结束后，进行匹配，如果匹配成功则返回，否则继续处理
-                parser = MatchParser(self.original_text)
-                if parser.match_all(left, right):
-                    self.match_idx_list = parser.match_idx_list
-                    self.match_flag = True
-                    return
-                if len(right) > 1:
-                    # 进一步的拆分 right
-                    self.split_match(right, left)
+        # 遍历上一步得到的列表，尝试合并其中的连续索引，变成连续索引段列表
+        self.merge_consecutive_idx(each_char_idx_list)
+        # 找出合并索引段后的文本段列表
+        merge_str_list = self.get_str_list()
+        # 尝试将邻近索引段表示的文本合并，构成新文本，再进行匹配，目的：优先组合单词匹配
+        self.recursive_match(merge_str_list)
+        return self.idx_match_list
 
+    def simple_match(self):
+        """简单匹配，直接进行全词匹配，返回匹配成功的索引值"""
+        if self.search_text in self.target_text:
+            start = self.target_text.index(self.search_text)
+            end = start + len(self.search_text) - 1
+            return start, end
 
-class MatchParser:
-    """实际匹配解析类"""
-    def __init__(self, original_text):
-        # 返回结果为列表，元素是匹配的索引值，前后均是闭区间
-        self.match_idx_list = list()
-        self.rest_start_idx = 0
-        self.original_text = original_text
-
-    def match_all(self, left_text, right_text):
-        """根据左右文本匹配，都匹配成功视为成功"""
-        # 先匹配左边
-        if isinstance(left_text, list):
-            for text in left_text:
-                if not self.match_parse(text):
-                    return
-        else:
-            if not self.match_parse(left_text):
+    def first_match(self):
+        """
+        初步匹配，匹配search_text中每个字符按顺序在target中的位置，
+        如果存在不在target中的字符，则匹配失败，否则返回匹配后的索引列表
+        """
+        i = -1
+        idx_list = list()
+        for text in self.search_text:
+            if text in self.target_text[i + 1:]:
+                i = self.target_text.index(text, i + 1)
+                idx_list.append(i)
+            else:
                 return
-        # 处理右边
-        if not self.match_parse(right_text):
+        return idx_list
+
+    def merge_consecutive_idx(self, idx_list):
+        """
+        合并索引段，找出索引列表中连续的索引，合并为段
+        eg: [1, 2, 3, 4, 6, 7, 8, 10] ->
+        [(1,4), (6, 8), (10, 10)]
+        """
+        start = idx_list[0]
+        for j, idx in enumerate(idx_list):
+            if j == len(idx_list) - 1:
+                self.consecutive_idx_segments.append((start, idx))
+            else:
+                next_ = idx_list[j + 1]
+                if idx + 1 != next_:
+                    end = idx
+                    self.consecutive_idx_segments.append((start, end))
+                    start = next_
+        self.idx_match_list = self.consecutive_idx_segments
+
+    def get_str_list(self):
+        """按合并后的索引段找出对应的文本列表"""
+        str_list = list()
+        for i in self.consecutive_idx_segments:
+            str_list.append(self.target_text[i[0]: i[1] + 1])
+        return str_list
+
+    def recursive_match(self, str_list):
+        """递归匹配字符列表，合并相邻文本段进行匹配，以达到精准匹配已存在单词的目的"""
+        # 如果元素个数等于1，退出即可，因为简单匹配中会匹配到完全匹配的情况；
+        # 元素个数等于2，再次合并即等于完全匹配，没有必要继续
+        if isinstance(str_list, list) and len(str_list) <= 2:
             return
-        return True
+        for i, str_seg in enumerate(str_list):
+            if i < len(str_list) - 1:
+                # 下一个文本段
+                next_str_seg = str_list[i + 1]
+                # 当前文本段 + 下一个文本段，合并为新的文本
+                merge_str_seg = str_seg + next_str_seg
+                # 构造合并文本后的新列表
+                merge_str_list = [*str_list[:i], merge_str_seg, *str_list[i + 2:]]
+                # 进行匹配
+                match_result = self.match_sequence(merge_str_list)
+                if match_result:
+                    # 匹配成功，将当前结果赋值给最终结果
+                    self.idx_match_list = match_result
+                    # 以新文本列表替换原str list，递归合并匹配，如果匹配失败，继续下一个元素
+                    self.recursive_match(merge_str_list)
+                    break
 
-    def match_parse(self, text):
-        match_result = self.match(text)
-        if match_result:
-            self.match_idx_list.append((match_result[0] + self.rest_start_idx,
-                                        match_result[1] + self.rest_start_idx))
-            self.original_text = self.original_text[match_result[1] + 1:]
-            self.rest_start_idx = self.rest_start_idx + match_result[1] + 1
-            return True
-
-    def match(self, text):
-        if text.lower() in self.original_text.lower():
-            start_idx = self.original_text.lower().index(text.lower())
-            return start_idx, start_idx + len(text) - 1
+    def match_sequence(self, str_list):
+        """匹配文本列表中每一个元素是否在target text中，且需按顺序匹配"""
+        start = -1
+        end = 0
+        idx_list = list()
+        for text in str_list:
+            if text in self.target_text[start + 1:]:
+                start = self.target_text.index(text, end)
+                end = start + len(text) - 1
+                idx_list.append((start, end))
+                start = end
+            else:
+                return
+        return idx_list

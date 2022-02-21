@@ -2,7 +2,7 @@
 from PyQt5.QtCore import Qt
 
 from src.ui.searcher.dock.dock_widget import SearcherDockWidget
-from src.ui.searcher.searcher_func.matcher_func import Matcher, MatchParser
+from src.ui.searcher.searcher_func.matcher_func import SmartMatcher
 from src.ui.searcher.style_item_delegate.search_style_delegate import SearchStyledItemDelegate
 
 _author_ = 'luwt'
@@ -50,8 +50,12 @@ class Searcher:
             original_func(*args)
         # 设置焦点
         self.set_selected_focus()
+        # 给子类一个处理特有逻辑的机会
+        self.search_post_processor()
         # 渲染，触发界面绘制刷新
         self.target.viewport().update()
+
+    def search_post_processor(self): ...
 
     def clear_search(self):
         # 容器清空
@@ -80,9 +84,7 @@ class Searcher:
         text = self.dock_widget.line_edit.text() + cur_text
         # 如果搜索过，在当前的小范围内搜索
         if self.match_item_records:
-            last_match_items = self.match_item_records[-1]
-            for item in last_match_items:
-                self.complex_match_text(text, item, match_items)
+            self.smart_match_text(text, match_items)
         else:
             # 如果还没搜索过，用迭代器，在所有节点中搜寻
             self.iterate_search(text, match_items)
@@ -95,23 +97,32 @@ class Searcher:
             self.dock_widget.line_edit.paint_wrong_color()
 
     def simple_match_text(self, text, item, match_items):
-        parser = MatchParser(self.get_item_text(item))
-        result = parser.match(text)
+        smart_matcher = SmartMatcher(text)
+        result = smart_matcher.match(self.get_item_text(item))
         if result:
             # 将匹配成功的信息放入列表
             match_items.append(item)
-            self.search_item_dict[id(item)] = [[result]]
+            self.search_item_dict[id(item)] = [result]
 
-    def complex_match_text(self, text, item, match_items):
-        matcher = Matcher(self.get_item_text(item))
-        match_idx_list = matcher.smart_match(text)
-        if match_idx_list:
-            match_items.append(item)
-            self.search_item_dict.get(id(item)).append(match_idx_list)
+    def smart_match_text(self, text, match_items):
+        last_match_items = self.match_item_records[-1]
+        # 构建搜索器
+        smart_matcher = SmartMatcher(text)
+        for item in last_match_items:
+            match_result = smart_matcher.match(self.get_item_text(item))
+            if match_result:
+                # 匹配成功，添加匹配成功的元素
+                match_items.append(item)
+                self.search_item_dict.get(id(item)).append(match_result)
 
     def set_selected_focus(self):
         if self.match_item_records and self.match_item_records[-1]:
             self.target.set_selected_focus(self.match_item_records[-1][0])
+
+    def expand_selected_items(self):
+        """展开选中的元素"""
+        if self.match_item_records and self.match_item_records[-1]:
+            [item.setExpanded(True) for item in self.match_item_records[-1] if item.childCount()]
 
     def iterate_search(self, text, match_items): ...
 

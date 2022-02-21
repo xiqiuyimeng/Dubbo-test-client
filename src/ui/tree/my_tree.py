@@ -3,13 +3,14 @@ from PyQt5.QtWidgets import QTreeWidget
 
 from src.constant.main_constant import SYNC_ITEM_EXPANDED
 from src.ui.async_func.async_conn_db import AsyncUpdateExpandedManager
+from src.ui.scrollable_widget.scrollable_widget import MyScrollableWidget
 from src.ui.searcher.smart_items_view.smart_items_view import SmartSearcherTreeWidget
 
 _author_ = 'luwt'
 _date_ = '2021/12/10 12:48'
 
 
-class MyTreeWidget(QTreeWidget, SmartSearcherTreeWidget):
+class MyTreeWidget(QTreeWidget, MyScrollableWidget, SmartSearcherTreeWidget):
 
     def __init__(self, parent, window):
         super().__init__(parent)

@@ -22,3 +22,7 @@ class TreeSearcher(Searcher):
 
     def get_item_text(self, item):
         return item.text(0)
+
+    def search_post_processor(self):
+        # 展开选中的元素
+        self.expand_selected_items()
