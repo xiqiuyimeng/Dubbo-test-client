@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from PyQt5.QtCore import QRect, Qt
-from PyQt5.QtGui import QBrush
+from PyQt5.QtCore import QRect
+from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtWidgets import QStyle, QStyledItemDelegate
 
 from src.ui.searcher.style_item_delegate.painter_delegate import ItemPainterContext
@@ -51,4 +51,5 @@ class SearchStyledItemDelegate(QStyledItemDelegate):
     def draw_selected_background(option, painter):
         # 由于在计算图标和文本位置时，将坐标系平移到了当前展示项的起始位置，所以行的坐标，在坐标系变换后，相当于左移了 option.rect.x()
         rect = QRect(0 - option.rect.x(), 0, option.rect.width() + option.rect.x(), option.rect.height())
-        painter.fillRect(rect, QBrush(Qt.gray))
+        # 背景色设置为青绿色
+        painter.fillRect(rect, QBrush(QColor(175, 238, 238)))

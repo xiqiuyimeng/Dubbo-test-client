@@ -109,15 +109,14 @@ class SmartMatcher:
 
     def match_sequence(self, str_list):
         """匹配文本列表中每一个元素是否在target text中，且需按顺序匹配"""
-        start = -1
-        end = 0
+        start = 0
         idx_list = list()
         for text in str_list:
-            if text in self.target_text[start + 1:]:
-                start = self.target_text.index(text, end)
+            if text in self.target_text[start:]:
+                start = self.target_text.index(text, start)
                 end = start + len(text) - 1
                 idx_list.append((start, end))
-                start = end
+                start = end + 1
             else:
                 return
         return idx_list

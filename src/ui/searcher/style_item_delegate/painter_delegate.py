@@ -2,7 +2,7 @@
 from abc import ABC
 
 from PyQt5.QtCore import Qt, QRect, QRectF
-from PyQt5.QtGui import QBrush
+from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtWidgets import QStyle, QStyleOptionButton, QTreeWidgetItem, QListWidgetItem
 
 _author_ = 'luwt'
@@ -171,7 +171,7 @@ class TextItemPainter(ItemPainterAbstract):
             # 左边像素宽度
             left_text_width = font_metrics.width(left_text)
             # 找到左边字符的rect
-            left_rect = QRectF(text_rect_x, text_rect.y(), left_text_width, text_rect.height())
+            left_rect = QRectF(text_rect_x, text_rect.y(), left_text_width + 1, text_rect.height())
 
             # 搜索文本
             current_search_text = self.item_text[char_start_idx: char_end_idx + 1] \
@@ -181,7 +181,7 @@ class TextItemPainter(ItemPainterAbstract):
             # 找到当前字符的rect
             search_rect = QRectF(text_rect_x + left_text_width,
                                  text_rect.y(),
-                                 search_text_width,
+                                 search_text_width + 1,
                                  text_rect.height())
 
             start = char_end_idx + 1
@@ -193,7 +193,8 @@ class TextItemPainter(ItemPainterAbstract):
                 self.painter.drawText(left_rect, left_text)
             # 处理当前搜索的字符
             self.painter.setPen(Qt.white)
-            self.painter.setBackground(QBrush(Qt.darkCyan))
+            # 背景色设置为橙红色
+            self.painter.setBackground(QBrush(QColor(255, 69, 0)))
             # 不透明模式OpaqueMode，默认为透明
             self.painter.setBackgroundMode(Qt.OpaqueMode)
             self.painter.drawText(search_rect, current_search_text)

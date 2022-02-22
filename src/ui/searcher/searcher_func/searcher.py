@@ -45,11 +45,11 @@ class Searcher:
             self.search(text)
         elif key == Qt.Key_Backspace:
             self.backspace_search()
+        elif self.match_item_records and (key == Qt.Key_Up or key == Qt.Key_Down):
+            self.up_down_select_item(key)
         else:
             # 处理不了的情况，交由调用方处理
             original_func(*args)
-        # 设置焦点
-        self.set_selected_focus()
         # 给子类一个处理特有逻辑的机会
         self.search_post_processor()
         # 渲染，触发界面绘制刷新
@@ -78,6 +78,42 @@ class Searcher:
             if not self.match_item_records or self.match_item_records[-1]:
                 self.dock_widget.line_edit.paint_right_color()
 
+    def up_down_select_item(self, key):
+        item_records = self.match_item_records[-1]
+        # 如果当前节点不在搜索列表中，找出离当前元素最近的搜索节点
+        if self.target.currentItem() in item_records:
+            index = item_records.index(self.target.currentItem())
+            if key == Qt.Key_Up:
+                next_item = item_records[index - 1]
+            else:
+                next_item = item_records[index + 1 if index < len(item_records) - 1 else 0]
+        else:
+            up_item, next_item = self.get_up_down_next(item_records, self.target.currentItem())
+            if key == Qt.Key_Up:
+                # 找出离当前元素最近的上一个元素
+                next_item = up_item
+            else:
+                # 找出离当前元素最近的下一个元素
+                next_item = next_item
+        self.target.set_selected_focus(next_item)
+
+    def get_up_down_next(self, item_list, item):
+        # 如果查找元素小于第一个元素或大于最后一个元素，则返回(-1，0)
+        if self.get_row(item) < self.get_row(item_list[0]) or self.get_row(item) > self.get_row(item_list[-1]):
+            return item_list[-1], item_list[0]
+        # 最终查找到只有两个元素，且查找在元素在其范围之内，返回
+        if len(item_list) == 2 and self.get_row(item_list[0]) < self.get_row(item) < self.get_row(item_list[1]):
+            return item_list[0], item_list[1]
+        # 获取中间索引
+        mid_idx = len(item_list) // 2
+        # 如果中间数大于查找元素，查找左边元素，否则查找右边
+        if self.get_row(item_list[mid_idx]) - self.get_row(item) > 0:
+            return self.get_up_down_next(item_list[0: mid_idx + 1], item)
+        else:
+            return self.get_up_down_next(item_list[mid_idx:], item)
+
+    def get_row(self, item) -> int: ...
+
     def search(self, cur_text):
         match_items = list()
         # 当前搜索的文本，加上前面输入的
@@ -95,6 +131,8 @@ class Searcher:
         # 如果匹配不到，把输入框文本变为错误颜色
         if not match_items:
             self.dock_widget.line_edit.paint_wrong_color()
+        # 设置焦点
+        self.set_selected_focus()
 
     def simple_match_text(self, text, item, match_items):
         smart_matcher = SmartMatcher(text)
@@ -120,9 +158,15 @@ class Searcher:
             self.target.set_selected_focus(self.match_item_records[-1][0])
 
     def expand_selected_items(self):
-        """展开选中的元素"""
+        """展开选中的元素，如果当前元素是一个父节点，且其下子节点中存在选中元素，则展开父节点"""
         if self.match_item_records and self.match_item_records[-1]:
-            [item.setExpanded(True) for item in self.match_item_records[-1] if item.childCount()]
+            [item.setExpanded(True) for item in self.match_item_records[-1]
+             if item.childCount() and self.child_selected(item)]
+
+    def child_selected(self, item):
+        for i in range(item.childCount()):
+            if item.child(i) in self.match_item_records[-1]:
+                return True
 
     def iterate_search(self, text, match_items): ...
 
