@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QAbstractItemView
 
 from src.ui.searcher.searcher_func.tree_searcher import TreeSearcher

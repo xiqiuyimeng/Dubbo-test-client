@@ -28,7 +28,10 @@ class Searcher:
         # dock 窗口
         self.dock_widget = SearcherDockWidget(main_widget)
         self.dock_widget.hide()
+        # 存储以第一次匹配得到的元素字典，{id(item): [[(0,0)], [(0,1)]]}，key为item的id，value为list，存储每次匹配到的索引段列表，
+        # 可以作为当前元素的搜索历史记录
         self.search_item_dict = dict()
+        # 存储匹配到的元素列表记录，[[item0, item1], [item0]]，列表的最后永远是最新的元素匹配记录
         self.match_item_records = list()
         # 给target设置视图代理对象
         self.target.setItemDelegate(SearchStyledItemDelegate(self.target,
